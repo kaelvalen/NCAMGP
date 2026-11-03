@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NCA ekosistemi</title>
+<style>
+  :root { --paper: #fff; --field: #f1f1ef; --ink: #1a1a1a; --quiet: #6b6b67; --rule: #d9d9d5; --wound: #d0021b; }
+  @media (prefers-color-scheme: dark) { :root { --paper: #1c1c1b; --ink: #ededeb; --quiet: #a0a09b; --rule: #3a3a38; --wound: #ff5a5f; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/20px "Helvetica Neue", Helvetica, "Nimbus Sans", "Liberation Sans", Arial, sans-serif; }
+  main { display: grid; grid-template-columns: minmax(0, max(360px, calc(100vh - 200px))) minmax(248px, 288px); gap: 48px; justify-content: start; align-items: start; padding: 32px; }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); gap: 32px; padding: 16px; } }
+  .stage { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; touch-action: none; background: var(--field); }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #overlay { cursor: crosshair; }
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 16px; }
+  .stat b { display: block; font-size: 20px; line-height: 24px; font-weight: 400; font-variant-numeric: tabular-nums; }
+  .stat span { display: block; color: var(--quiet); font-size: 12px; line-height: 16px; }
+  .chart { margin-top: 16px; }
+  .chart canvas { width: 100%; height: 48px; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 0 16px; font-size: 12px; line-height: 16px; color: var(--quiet); margin-bottom: 8px; }
+  .sw { display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 6px; }
+  h1 { margin: 0; font-size: 20px; line-height: 24px; font-weight: 400; }
+  .lede { margin: 8px 0 0; color: var(--quiet); }
+  section { margin-top: 24px; }
+  h2 { margin: 0 0 8px; font-size: 14px; line-height: 20px; font-weight: 700; }
+  .row { display: grid; grid-template-columns: 116px minmax(0, 1fr) 44px; gap: 8px; align-items: center; min-height: 28px; }
+  .row label { color: var(--quiet); }
+  .row output { text-align: right; font-variant-numeric: tabular-nums; }
+  .check { display: flex; gap: 8px; align-items: center; min-height: 28px; color: var(--quiet); margin-top: 8px; }
+  .check input { accent-color: var(--ink); margin: 0; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; margin: 0; background: transparent; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 1px; background: var(--ink); }
+  input[type=range]::-moz-range-track { height: 1px; background: var(--ink); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 16px; margin-top: -8px; background: var(--ink); border: 0; border-radius: 0; }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 16px; background: var(--ink); border: 0; border-radius: 0; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-bottom: 8px; }
+  button { font: inherit; color: var(--ink); background: none; border: 1px solid var(--rule); border-radius: 0; padding: 5px 4px; min-height: 32px; cursor: pointer; }
+  .seg button + button { margin-left: -1px; }
+  .seg button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  :focus-visible { outline: 2px solid var(--wound); outline-offset: 2px; position: relative; z-index: 1; }
+  .hint { color: var(--quiet); font-size: 12px; line-height: 16px; margin: 8px 0 0; min-height: 32px; }
+  .hint:empty { display: none; }
+  #nomodels { display: none; padding: 32px; }
+</style>
+</head>
+<body>
+<div id="nomodels">Model bulunamadı. Önce <code>uv run python export/export_evo.py</code> çalıştırın.</div>
+<main id="app">
+  <div>
+    <div class="stage">
+      <canvas id="view"></canvas>
+      <canvas id="overlay" width="900" height="900"></canvas>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="s-org">0</b><span>canlı birey</span></div>
+      <div class="stat"><b id="s-born">0</b><span>toplam doğum</span></div>
+      <div class="stat"><b id="s-div">0</b><span>genom çeşitliliği</span></div>
+      <div class="stat"><b id="s-step">0</b><span>adım</span></div>
+      <div class="stat"><b id="s-fps">0</b><span>adım/sn</span></div>
+    </div>
+    <div class="chart">
+      <div class="legend"><span><i class="sw" style="background:var(--ink)"></i>canlı birey</span><span><i class="sw" style="background:var(--wound)"></i>genom çeşitliliği</span><span><i class="sw" style="background:var(--quiet)"></i>ortalama kaynak</span></div>
+      <canvas id="chart" width="1400" height="96"></canvas>
+    </div>
+  </div>
+  <aside>
+    <h1>NCA ekosistemi</h1>
+    <p class="lede">Her canlı kendi genomundan büyür. Kesildiğinde yarada potansiyel birikir ve genom orada mutasyona uğrar, bu yüzden yenilenen canlı eskisinin aynısı olmaz.</p>
+    <section>
+      <h2>Araç</h2>
+      <div class="seg" id="tools">
+        <button data-tool="cut" class="on">Kes</button>
+        <button data-tool="erase">Sil</button>
+        <button data-tool="seed">Tohum</button>
+        <button data-tool="inspect">İncele</button>
+      </div>
+      <div class="row"><label for="brush">Fırça</label><input id="brush" type="range" min="1" max="16" value="5"><output id="brush-o">5</output></div>
+      <p class="hint" id="tool-hint"></p>
+    </section>
+    <section>
+      <h2>Evrim</h2>
+      <div class="row"><label for="mu">Mutasyon μ</label><input id="mu" type="range" min="0" max="1" step="0.01" value="0.15"><output id="mu-o">0.15</output></div>
+      <div class="row"><label for="pred">Yırtıcı, kesme/sn</label><input id="pred" type="range" min="0" max="2" step="0.05" value="0.3"><output id="pred-o">0.30</output></div>
+      <div class="row"><label for="regrow">Kaynak yenilenme</label><input id="regrow" type="range" min="0.001" max="0.012" step="0.0005" value="0.004"><output id="regrow-o">0.004</output></div>
+    </section>
+    <section>
+      <h2>Görünüm</h2>
+      <div class="seg" id="views">
+        <button data-view="rgb" class="on">Canlı</button>
+        <button data-view="lineage">Soy</button>
+        <button data-view="potential">Yara</button>
+        <button data-view="resource">Kaynak</button>
+      </div>
+      <p class="hint" id="inspect-out"></p>
+    </section>
+    <section>
+      <h2>Simülasyon</h2>
+      <div class="seg">
+        <button id="play">Duraklat</button>
+        <button id="step">Tek adım</button>
+        <button id="reset">Yeni dünya</button>
+      </div>
+      <div class="row"><label for="nseed">Başlangıç birey</label><input id="nseed" type="range" min="1" max="24" value="10"><output id="nseed-o">10</output></div>
+      <div class="row"><label for="speed">Hız, adım/sn</label><input id="speed" type="range" min="5" max="120" step="5" value="30"><output id="speed-o">30</output></div>
+      <label class="check"><input type="checkbox" id="smooth" checked> Yumuşak çizim</label>
+      <p class="hint" id="engine"></p>
+    </section>
+  </aside>
+</main>
+<script src="evo_models.js"></script>
+<script src="evo.js"></script>
+<script src="evo_gpu.js"></script>
+<script src="evo_app.js"></script>
+</body>
+</html>
