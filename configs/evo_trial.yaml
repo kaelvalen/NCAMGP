@@ -1,0 +1,17 @@
+# Hızlı deneme (küçük ızgara, kısa eğitim): kayıp dengesini görsel olarak ayarlamak için
+base: evo.yaml
+name: evo_trial
+grid: 64
+area: [120, 450]
+iterations: 2000
+lr_drop_iter: 1500
+damage:
+  start_iter: 1000
+loss:
+  opak: 6.0
+  kenar: 6.0
+  simetri: 3.0
+  edge_band: 8
+snapshot_every: 500
+print_every: 500
+out_dir: runs/_trials
