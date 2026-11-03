@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NCA Morfogenez Demo</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1f1d1a; --muted: #6d675e; --line: #e2ddd3;
+    --accent: #c2477a; --accent-ink: #ffffff; --chip: #f1ede5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #17161a; --panel: #211f25; --ink: #ece8e1; --muted: #a39d93; --line: #34313a; --chip: #2b2830; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 18px 24px 6px; }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: .2px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(280px, 680px) 330px; gap: 20px; padding: 14px 24px 24px; align-items: start; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
+  .stage { position: relative; width: 100%; aspect-ratio: 1; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; touch-action: none; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+  #overlay { cursor: crosshair; }
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  aside { display: flex; flex-direction: column; gap: 12px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  section h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  .row label { min-width: 92px; color: var(--muted); }
+  .row input[type=range] { flex: 1; min-width: 100px; accent-color: var(--accent); }
+  .row output { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  select, button { font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 7px; padding: 5px 10px; }
+  select { flex: 1; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .seg button.on, button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  kbd { font: 11px ui-monospace, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  #nomodels { display: none; padding: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>NCA Morfogenez — planarya benzeri organizma</h1>
+  <p>Tek bir öğrenilmiş yerel kural: tohumdan büyür, hasarı onarır, kesilen parçalardan yeni birey çıkar.</p>
+</header>
+<div id="nomodels">Model bulunamadı. Önce <code>uv run python export/export_weights.py</code> çalıştırın; bu komut <code>demo/models.js</code> dosyasını üretir.</div>
+<main id="app">
+  <div>
+    <div class="stage">
+      <canvas id="view" width="128" height="128"></canvas>
+      <canvas id="overlay" width="768" height="768"></canvas>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="s-step">0</b><span>adım</span></div>
+      <div class="stat"><b id="s-area">0</b><span>canlı hücre</span></div>
+      <div class="stat"><b id="s-ind">0</b><span>birey</span></div>
+      <div class="stat"><b id="s-head">0</b><span>baş</span></div>
+      <div class="stat"><b id="s-fps">0</b><span>adım/sn</span></div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>Model</h2>
+      <div class="row"><select id="model"></select></div>
+      <p class="hint">Model değişince durum korunur: aynı kesmenin farklı kurallardaki sonucunu karşılaştırmak için <b>Kaydet</b> / <b>Geri yükle</b> kullanın.</p>
+    </section>
+    <section>
+      <h2>Araç</h2>
+      <div class="seg" id="tools">
+        <button data-tool="erase" class="on">Sil</button>
+        <button data-tool="cut">Kes</button>
+        <button data-tool="paint">Müdahale</button>
+        <button data-tool="seed">Tohum</button>
+      </div>
+      <div class="row"><label>Fırça</label><input id="brush" type="range" min="1" max="20" value="6"><output id="brush-o">6</output></div>
+      <div class="row"><label>Ayırma</label><input id="gap" type="range" min="0" max="60" value="40"><output id="gap-o">40</output></div>
+      <p class="hint" id="tool-hint"></p>
+    </section>
+    <section>
+      <h2>Müdahale</h2>
+      <div class="row"><label>Kanal</label><select id="pchan"></select></div>
+      <div class="row"><label>Değer</label><input id="pval" type="range" min="-1.5" max="1.5" step="0.05" value="1"><output id="pval-o">1.00</output></div>
+      <p class="hint" id="probe-hint"></p>
+    </section>
+    <section>
+      <h2>Simülasyon</h2>
+      <div class="row">
+        <button id="play" class="primary">Duraklat</button>
+        <button id="step">Tek adım</button>
+        <button id="reset">Tohumdan başla</button>
+      </div>
+      <div class="row"><label>Hız</label><input id="speed" type="range" min="1" max="24" value="4"><output id="speed-o">4</output></div>
+      <div class="row"><button id="save">Kaydet</button><button id="load">Geri yükle</button><button id="clear">Temizle</button></div>
+    </section>
+    <section>
+      <h2>Görünüm</h2>
+      <div class="row"><select id="viewmode"></select></div>
+    </section>
+    <p class="hint"><kbd>Boşluk</kbd> oynat/duraklat · <kbd>.</kbd> tek adım · <kbd>1</kbd>–<kbd>4</kbd> araç · <kbd>R</kbd> tohumdan başla</p>
+  </aside>
+</main>
+<script src="models.js"></script>
+<script src="nca.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
