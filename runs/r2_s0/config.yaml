@@ -1,0 +1,37 @@
+name: r2
+seed: 0
+target: targets/planaria.npz
+grid: 72
+model:
+  n_hidden: 12
+  hidden_dim: 128
+  perception: sobel_lap
+  fire_rate: 0.5
+pool:
+  enabled: true
+  size: 1024
+batch_size: 8
+steps:
+- 64
+- 96
+lr: 0.002
+lr_drop_iter: 2000
+lr_drop: 0.1
+iterations: 8000
+grad_norm: per_param
+grad_clip: null
+checkpoint_segment: 0
+damage:
+  regime: R2
+  n_damaged: 3
+  start_iter: 0
+  circle_r:
+  - 0.1
+  - 0.4
+  keep_frac:
+  - 0.2
+  - 0.8
+  r3_circle_prob: 0.5
+log_every: 50
+snapshot_every: 1000
+out_dir: runs

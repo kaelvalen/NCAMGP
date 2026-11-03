@@ -1,0 +1,43 @@
+name: ancestor
+seed: 0
+grid: 64
+n_bank: 4096
+bank_seed: 0
+model:
+  n_hidden: 12
+  n_genome: 8
+  hidden_dim: 128
+  perception: sobel_lap
+  fire_rate: 0.5
+  sense_v: true
+physics:
+  v_decay: 0.97
+  v_gain: 1.0
+  v_diffuse: 0.2
+  v_max: 2.0
+  kappa: 0.02
+pool_size: 1024
+batch_size: 8
+steps:
+- 64
+- 96
+lr: 0.001
+lr_drop_iter: 12000
+lr_drop: 0.1
+iterations: 20000
+checkpoint_segment: 16
+bounds_weight: 1.0
+damage:
+  start_iter: 0
+  n_damaged: 2
+  circle_r:
+  - 0.1
+  - 0.3
+  keep_frac:
+  - 0.3
+  - 0.8
+log_every: 50
+print_every: 500
+snapshot_every: 1000
+out_dir: runs
+init_from: runs/ancestor_stage1_s0/model.pt

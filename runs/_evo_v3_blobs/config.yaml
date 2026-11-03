@@ -1,0 +1,58 @@
+name: evo
+seed: 0
+grid: 80
+model:
+  n_hidden: 12
+  n_genome: 8
+  hidden_dim: 128
+  perception: sobel_lap
+  fire_rate: 0.5
+  sense_v: true
+physics:
+  v_decay: 0.97
+  v_gain: 1.0
+  v_diffuse: 0.2
+  v_max: 2.0
+  kappa: 0.02
+area:
+- 150
+- 700
+loss:
+  kimlik: 1.0
+  sekil: 0.5
+  alan: 3.0
+  tek: 1.0
+  duragan: 1.0
+  yapi: 1.0
+  sinir: 1.0
+  opak: 1.0
+  renk: 1.0
+  kenar: 3.0
+  simetri: 1.0
+  min_color_std: 0.12
+  max_luma: 0.7
+pool_size: 1024
+batch_size: 8
+steps:
+- 64
+- 96
+stable_k: 8
+lr: 0.002
+lr_drop_iter: 3000
+lr_drop: 0.1
+lr_decoder: 0.001
+iterations: 8000
+checkpoint_segment: 16
+damage:
+  start_iter: 1500
+  n_damaged: 2
+  circle_r:
+  - 0.1
+  - 0.3
+  keep_frac:
+  - 0.3
+  - 0.8
+log_every: 50
+print_every: 250
+snapshot_every: 500
+out_dir: runs

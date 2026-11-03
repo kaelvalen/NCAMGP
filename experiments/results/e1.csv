@@ -1,0 +1,2 @@
+run,viable,area_in_range,single_body,stable_iou_200_1000,pairwise_shape_iou_mean,pairwise_shape_iou_min,decoder_r2,elongation_std,fill_std,hue_spread,target_iou_mean,target_iou_ge_0.9,target_mse
+ancestor_s0,1.0,1.0,1.0,0.990943004301073,0.7124628248212211,0.42757417102966844,nan,0.692413155993809,0.022696556626529286,0.10204277774452959,0.9665531399393867,0.984375,0.0003943084739148617
