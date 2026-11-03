@@ -1,0 +1,21 @@
+# Genişletme 2 (esnek): seyrek gürültüden K birey
+# v1 (sıfırdan, lap algılama, yoğunluk 0.02) her şeyi öldüren yerel minimuma düştü
+# (runs/noise_v1_failed_s0). v2: R3 ağırlıklarından ince ayar + ölü örnek yenileme;
+# v2 de birey yerine bulanık leke üretti (bkz. README, D6).
+base: base.yaml
+name: noise
+grid: 96
+steps: [96, 128]
+init_from: runs/r3_s0/model.pt
+lr: 5.0e-4
+lr_drop_iter: 1000
+iterations: 1500
+pool:
+  enabled: true
+  size: 256
+noise:
+  density: 0.003       # ~28 rastgele hücre
+  n_individuals: 3     # hedeflenen birey sayısı K
+  bg_weight: 0.3
+  n_fresh: 2           # her iterasyonda taze gürültüyle değiştirilen örnek sayısı
+checkpoint_segment: 16

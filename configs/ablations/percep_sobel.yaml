@@ -1,0 +1,5 @@
+# Ablasyon: yalnız Sobel algılama (Laplace yok), R3
+base: ../r3.yaml
+name: abl_percep_sobel
+model:
+  perception: sobel

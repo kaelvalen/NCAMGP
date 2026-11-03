@@ -1,0 +1,5 @@
+# R3 - karma: dairesel + kesme
+base: base.yaml
+name: r3
+damage:
+  regime: R3

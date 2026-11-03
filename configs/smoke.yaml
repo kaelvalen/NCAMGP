@@ -1,0 +1,8 @@
+# Hızlı duman testi
+base: r3.yaml
+name: smoke
+iterations: 60
+lr_drop_iter: 30
+log_every: 10
+snapshot_every: 30
+out_dir: runs/_smoke

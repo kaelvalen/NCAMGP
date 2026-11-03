@@ -1,0 +1,5 @@
+# Ablasyon: 8 gizli kanal, R3 (konum hafızası için gereken kapasite)
+base: ../r3.yaml
+name: abl_hidden_8
+model:
+  n_hidden: 8

@@ -1,0 +1,5 @@
+# R2 - yarım düzlem kesmesi, kalan parça %20-80
+base: base.yaml
+name: r2
+damage:
+  regime: R2

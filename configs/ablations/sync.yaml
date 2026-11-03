@@ -1,0 +1,5 @@
+# Ablasyon: senkron güncelleme (p = 1.0), R3
+base: ../r3.yaml
+name: abl_sync
+model:
+  fire_rate: 1.0

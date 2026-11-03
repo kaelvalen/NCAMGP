@@ -1,0 +1,5 @@
+# Ablasyon: yalnız Laplace (izotropik algılama), R3. Asimetri asenkron güncelleme ile kırılmalı.
+base: ../r3.yaml
+name: abl_percep_lap
+model:
+  perception: lap

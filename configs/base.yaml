@@ -1,0 +1,32 @@
+# Ortak ayarlar (Mordvintsev vd., 2020 kuruluşu). Diğer config'ler `base: base.yaml` ile kalıtır.
+name: base
+seed: 0
+target: targets/planaria.npz
+grid: 72            # 40x40 hedef + her yandan 16 piksel boşluk
+model:
+  n_hidden: 12      # 4 görünür + 12 gizli = 16 kanal
+  hidden_dim: 128
+  perception: sobel_lap   # sobel | sobel_lap | lap
+  fire_rate: 0.5    # asenkron güncelleme olasılığı
+pool:
+  enabled: true
+  size: 1024
+batch_size: 8
+steps: [64, 96]
+lr: 2.0e-3
+lr_drop_iter: 2000
+lr_drop: 0.1
+iterations: 8000
+grad_norm: per_param
+grad_clip: null
+checkpoint_segment: 0   # >0 ise BPTT bellek tasarrufu için gradyan checkpoint
+damage:
+  regime: R0
+  n_damaged: 3
+  start_iter: 0
+  circle_r: [0.1, 0.4]
+  keep_frac: [0.2, 0.8]
+  r3_circle_prob: 0.5
+log_every: 50
+snapshot_every: 1000
+out_dir: runs

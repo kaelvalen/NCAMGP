@@ -1,0 +1,5 @@
+# Ablasyon: sample pool kapalı; her iterasyon tohumdan başlar, hasar uygulanmaz.
+base: ../r3.yaml
+name: abl_no_pool
+pool:
+  enabled: false

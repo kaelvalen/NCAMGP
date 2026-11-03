@@ -1,0 +1,5 @@
+# R1 - dairesel hasar (Mordvintsev standart onarımı)
+base: base.yaml
+name: r1
+damage:
+  regime: R1

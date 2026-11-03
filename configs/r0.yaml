@@ -1,0 +1,5 @@
+# R0 - hasarsız, yalnızca büyüme (taban çizgisi)
+base: base.yaml
+name: r0
+damage:
+  regime: R0
