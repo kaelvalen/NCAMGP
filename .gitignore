@@ -1,0 +1,20 @@
+# ortam ve önbellek
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# LaTeX çıktıları
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.synctex.gz
+
+# yeniden üretilebilir: targets/creature_space.py bankayı yeniden kurar
+runs/ancestor_bank_*.npz
+# geçici test çıktıları
+runs/_ui/
+runs/_gl/
