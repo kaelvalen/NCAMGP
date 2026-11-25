@@ -116,3 +116,73 @@ def test_transport_tags_never_mix():
         assert torch.isclose(m2.sum(), m.sum())
         m, tag = m2, tag2
     assert m[0, 0, :, 7].sum() == 0  # boşluğa iki bireyden de kütle girmedi
+
+
+# --- adım fiziği ---
+from nca.evo import alive_cells  # noqa: E402
+from nca.life import E_CH, M_CH, LifePhysics, life_step  # noqa: E402
+
+
+def tot(x, R):
+    return R.sum() + x[:, M_CH].sum() + x[:, E_CH].sum()
+
+
+def blob_world(m, n=3, size=24, seed=0, e=1.0, r=1.0):
+    """n küçük canlı blok, düzgün kaynak."""
+    gen = torch.Generator().manual_seed(seed)
+    x = torch.zeros(1, m.channels, size, size)
+    for i in range(n):
+        y, xx = 4 + 7 * i, 4 + 5 * i
+        x[0, M_CH, y : y + 3, xx : xx + 3] = 1.0
+        x[0, E_CH, y : y + 3, xx : xx + 3] = e
+        x[0, 6:, y : y + 3, xx : xx + 3] = torch.rand(m.n_hidden, 3, 3, generator=gen)
+    g = torch.randn(1, m.n_genome, size, size, generator=gen) * (x[:, M_CH : M_CH + 1] > 0)
+    return x, g, torch.full((1, 1, size, size), r)
+
+
+def random_model(seed=0):
+    torch.manual_seed(seed)
+    m = LifeCA()
+    torch.nn.init.normal_(m.w2.weight, std=0.1)
+    return m
+
+
+def test_life_step_conserves_nutrient():
+    m = random_model()
+    x, g, R = blob_world(m)
+    t0 = tot(x, R)
+    with torch.no_grad():
+        for _ in range(50):
+            x, g, R, _, _ = life_step(m, x, g, R, LifePhysics())
+    assert alive_cells(x).any()
+    assert torch.isclose(tot(x, R), t0, rtol=1e-4)
+
+
+def test_starving_cell_returns_mass_to_R():
+    m = LifeCA()
+    x, g, R = blob_world(m, n=1, e=0.0, r=0.0)  # enerji yok, kaynak yok
+    t0 = tot(x, R)
+    with torch.no_grad():
+        x, g, R, _, _ = life_step(m, x, g, R, LifePhysics(), fire_rate=1.0)
+    assert alive_cells(x).sum() == 0 and x.abs().sum() == 0
+    assert torch.isclose(tot(x, R), t0, rtol=1e-4)
+
+
+def test_resource_never_negative():
+    m = random_model(1)
+    x, g, R = blob_world(m, n=3, r=0.01)
+    with torch.no_grad():
+        for _ in range(100):
+            x, g, R, _, _ = life_step(m, x, g, R, LifePhysics())
+            assert R.min() >= 0
+    assert x[:, M_CH].min() >= 0
+
+
+def test_life_step_backprop():
+    m = random_model()
+    x, g, R = blob_world(m)
+    for _ in range(5):
+        x, g, R, _, _ = life_step(m, x, g, R, LifePhysics())
+    x[:, M_CH].sum().backward()
+    assert m.w1.weight.grad is not None and torch.isfinite(m.w1.weight.grad).all()
+    assert m.w1.weight.grad.abs().sum() > 0
