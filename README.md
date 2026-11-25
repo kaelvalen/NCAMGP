@@ -75,7 +75,8 @@ ağırlık merkezine hizalanmış IoU kullanılır.
 
 ## Evrimsel ekosistem (yeni ana katkı)
 
-Tasarım ve sonuçlar: `docs/evrim_tasarim.md`. Hedefli NCA (aşağıdaki çekirdek katman) taban
+Tasarım ve sonuçlar: `docs/evrim_tasarim.md`. Yeni yön (planaryasız, canlıları ağ ve evrim yaratır):
+`docs/superpowers/specs/2026-11-25-yasayan-ekosistem-design.md`. Hedefli NCA (aşağıdaki çekirdek katman) taban
 çizgisi olarak kalır.
 
 ```bash

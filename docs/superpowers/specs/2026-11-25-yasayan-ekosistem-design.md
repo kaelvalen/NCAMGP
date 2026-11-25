@@ -1,6 +1,6 @@
 # Yaşayan Ekosistem — Tasarım
 
-Tarih: 25 Kasım 2026. Durum: taslak, onay bekliyor. Önceki yaklaşım (planarya atası):
+Tarih: 25 Kasım 2026. Durum: kullanıcı tarafından onaylandı (25 Kasım 2026). Önceki yaklaşım (planarya atası):
 `docs/evrim_tasarim.md`.
 
 ## Amaç ve neden
@@ -140,8 +140,12 @@ Kural çıktıları:
    `disturbance` (dış kesme) ya da `self` (hiçbiri).
 7. **Mutasyon ve homojenleşme**: bugünkü `mutate` (`g += μ V ξ`) ve beden içi
    `homogenize` aynen kalır.
-8. **Dış karışıklık (açık soru, bkz. sonda)**: bugünkü `cut` düşük bir oranda "hava olayı"
-   olarak kalabilir ya da sıfırlanabilir.
+8. **Dış karışıklık, kademeli söndürme (kullanıcı kararı)**: bugünkü `cut`, düşük oranda bir
+   "hava olayı" olarak başlar ve koşu boyunca doğrusal olarak sıfıra iner (örneğin koşunun
+   ilk yarısında). Ata bölünmeyi bilmediği için başlangıçta üreme yolu budur. Evrim, sönen
+   kesmenin yerine kendi üreme yolunu (kendiliğinden bölünme ya da yeme yoluyla parçalanma)
+   koymak zorundadır. Popülasyonun kesmeler sıfırlandıktan sonra sürmesi makalenin ana
+   iddiasıdır. Sönmesi de olumsuz sonuç olarak raporlanır.
 
 **Korunum**: besin kapalı bir döngüdür, `R ↔ E ↔ m`. Bakım ve hareket maliyeti `R`'ye
 geri döner. `ΣR + Σ(m·(1+E))` (tam biçimi uygulamada sabitlenecek) her adımda sabit kalır ve
@@ -185,7 +189,7 @@ Soy ağacı bugünkü gibi kaydedilir.
 | Y1 | Ata yaşayabilir mi (tek beden, 2000 adım, hasardan dönüş)? | — |
 | Y2 | Davranışlar evrimsel zamanda değişiyor mu? Hız, avcılık payı, `self` bölünme, ömür | μ = 0; `g` rastgele örnekleme (seçilim mi, sürüklenme mi?) |
 | Y3 | Ekolojik dinamik: popülasyon ve avcı oranı zaman serileri, salınım var mı? | μ = 0 |
-| Y4 | Evrimden sonra dış karışıklık kapatılınca soylar sürüyor mu (üreme kendi işleri mi oldu)? | ata, karışıklık kapalı |
+| Y4 | Kesmeler söndükten sonra popülasyon sürüyor mu (üreme kendi işleri mi oldu)? Söndürme sonrası birey sayısı ve bölünme nedenleri (`self` / `attack`) | ata aynı söndürmeyle μ = 0; ata karışıklık kapalı |
 | Y5 | Davranışlar kalıtsal mı? Bugünkü E5 tek-soy testi, davranış betimleyicileriyle | — |
 
 Tohum sayısı en az 2 olmalı, mümkünse 3. Uzun koşular en az 100 bin adım (süre 1. haftada
@@ -226,7 +230,7 @@ Sabitlerin sayısal değerleri (`k_eat`, `η`, `c_attack`, maliyetler, `m_min`, 
 kanal sayıları, kütle ağırlıklı taşınımın kesin sayısal biçimi, korunum ifadesinin tam biçimi,
 betimleyicilerin kesin tanımları, gölgelendirici geçişlerinin düzeni.
 
-## Tasarımcının kararları (kullanıcı onayı bekliyor)
+## Tasarımcının kararları (kullanıcı onayladı)
 
 - FiLM ile rastgele alt uzay (soy başına ağırlık tablosu yerine), d_g = 32, ön eğitimde `g = 0`.
 - Algıya `R`, yabancı kütle alanı ve `E` eklenir.
@@ -238,6 +242,7 @@ betimleyicilerin kesin tanımları, gölgelendirici geçişlerinin düzeni.
 - Ön eğitimde "tek beden" yerine "döküntü yok" terimi kullanılır (ata bölünmeye karşı eğitilmez).
 - Saldırı çıktısı sıfıra yakın başlatılır (ata saldırmaz).
 
-## Açık soru
+## Kullanıcı kararları
 
-Dış karışıklık (rastgele kesme): bkz. kullanıcıya sorulan soru. Cevap 4.8 ve Y4'e işlenecek.
+- Yaklaşım C (melez).
+- Dış kesmeler kademeli söndürülür (4.8, Y4).
