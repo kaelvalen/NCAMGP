@@ -15,7 +15,7 @@ batch_size: 8
 steps: [64, 96]
 homeo_k: 16
 lr: 2.0e-3
-lr_drop_iter: 6000
+lr_drop_iter: 3000      # 6000'de 4000 civarı ıraksadı (life_s0 ilk koşu)
 lr_drop: 0.1
 iterations: 10000
 checkpoint_segment: 16

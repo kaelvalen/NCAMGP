@@ -158,6 +158,10 @@ def train(cfg):
     opt = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
     sched = torch.optim.lr_scheduler.MultiStepLR(opt, [cfg["lr_drop_iter"]], gamma=cfg["lr_drop"])
 
+    def save(path):
+        torch.save({"state_dict": model.state_dict(), "model_config": model.config(), "physics": asdict(phys),
+                    "config": cfg}, path)
+
     P = cfg["pool_size"]
     pool_x, pool_g, pool_R = seed_state(model, P, size, dev)
     pool_loss = torch.full((P,), float("inf"), device=dev)
@@ -212,9 +216,9 @@ def train(cfg):
                     if s in (49, 399):
                         frames += list(to_uint8(render(xe)))
             save_grid(out / "snapshots" / f"gallery_{it:05d}.png", frames, scale=2, ncol=8)
+            save(out / "snapshots" / f"model_{it:05d}.pt")  # ıraksama olursa iyi ara durum kaybolmasın
     log_f.close()
-    torch.save({"state_dict": model.state_dict(), "model_config": model.config(), "physics": asdict(phys), "config": cfg},
-               out / "model.pt")
+    save(out / "model.pt")
     print(f"[{out.name}] bitti {time.time() - t0:.0f}s", flush=True)
     return out
 
