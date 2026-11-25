@@ -1,0 +1,182 @@
+"""Yaşayan ekosistem dünyası (docs/superpowers/specs/2026-11-25-yasayan-ekosistem-design.md, 4 ve 6).
+
+World'ün kimlik etiketlerini, segmentasyonunu, soy takibini ve kesmesini kullanır; adım fiziği
+nca/life.py'dendir: kural, taşınım (bireyler kaynaşmaz), yeme, kapalı besin döngüsü. Elle yazılmış
+davranış yoktur: hareket, saldırı ve bölünmeye kural karar verir. Dış kesmeler (hava olayı)
+anneal_steps boyunca doğrusal olarak sıfıra iner.
+
+Her bölünme nedeniyle kaydedilir: "disturbance" (ebeveyn son cause_window adımda kesildi),
+"attack" (ebeveyn bu pencerede yenildi) ya da "self".
+"""
+
+import math
+from dataclasses import dataclass
+
+import numpy as np
+import torch
+from scipy import ndimage
+
+from .evo import mutate
+from .life import E_CH, M_CH, eat, foreign_mass, life_step
+from .model import ALIVE_THRESHOLD
+from .world import World, WorldParams
+
+
+@dataclass
+class LifeParams(WorldParams):
+    anneal_steps: int = 50000  # kesme oranı bu adımda sıfıra iner
+    cause_window: int = 50  # bölünme nedenini belirlerken geriye bakılan adım
+
+
+class LifeWorld(World):
+    def __init__(self, model, phys, size=192, n_seeds=12, params=None, seed=0, genomes=None, groups=None):
+        params = params or LifeParams()
+        if genomes is None:  # ortak ata: tüm kurucular g = 0 (çeşitlilik yalnız yara mutasyonundan)
+            genomes = torch.zeros(n_seeds, model.n_genome)
+        dev = next(model.parameters()).device
+        self.extinct = False
+        self.eaten_acc = torch.zeros(1, 1, size, size, device=dev)
+        self.uptake_acc = torch.zeros(1, 1, size, size, device=dev)
+        self.last_attacked = {}  # etiket anahtarı -> son yenildiği adım
+        self.last_cut = {}  # organizma kimliği -> son kesildiği adım
+        self.org_tag = {}  # canlı organizma -> etiket anahtarı (önceki kayıttan)
+        self._ev_mark = 0
+        self._prev_cent = {}
+        super().__init__(model, phys, size, n_seeds, params, seed, genomes.to(dev), groups)
+
+    @staticmethod
+    def tag_key(t):
+        return int(round(float(t) * 1000))
+
+    def nutrient(self):
+        return float(self.R.sum() + self.x[:, M_CH].sum() + self.x[:, E_CH].sum())
+
+    # --- tek adım ---
+    @torch.no_grad()
+    def step(self):
+        p = self.p
+        F = foreign_mass(self.x, self.tag)
+        self.x, self.g, self.R, self.tag, out = life_step(self.model, self.x, self.g, self.R, self.phys, tag=self.tag, F=F)
+        self.x, self.R, lost, gain = eat(self.x, self.R, self.tag, out["attack"], self.phys)
+        self.eaten_acc += self.phys.eta * gain
+        self.uptake_acc += out["uptake"]
+        if (lost > 0).any():
+            for k in np.unique(np.round(self.tag[lost > 0].cpu().numpy() * 1000).astype(np.int64)):
+                self.last_attacked[int(k)] = self.t
+        alive = self.x[:, M_CH : M_CH + 1] > ALIVE_THRESHOLD
+        if self.kappa > 0:
+            self.g = self.homogenize(self.g, self.tag, alive)
+        self.g = mutate(self.g, self.x, p.mu).clamp(-p.g_clip, p.g_clip)
+        self.t += 1
+        if self.t % p.track_every == 0:
+            self.retag_splits()
+            self.clean_debris()
+            self.track()
+            self.predation()
+
+    def components(self):
+        """Etiket başına bağlı bileşenler (canlı hücreler, 8-bağlantı): [(etiket anahtarı, maske, boyut)]."""
+        alive = (self.x[0, M_CH] > ALIVE_THRESHOLD).cpu().numpy()
+        tags = np.round(self.tag[0, 0].cpu().numpy() * 1000).astype(np.int64) * alive
+        out = []
+        for tv in np.unique(tags[tags > 0]):
+            lab, k = ndimage.label(tags == tv, structure=np.ones((3, 3)))
+            for i in range(1, k + 1):
+                m = lab == i
+                out.append((int(tv), m, int(m.sum())))
+        return out
+
+    def retag_splits(self):
+        """Aynı etiketin yaşayabilir birden çok bileşeni varsa en büyüğü dışındakiler yeni birey olur."""
+        by_tag = {}
+        for tv, m, n in self.components():
+            if n >= self.p.min_viable:
+                by_tag.setdefault(tv, []).append((n, m))
+        for tv, comps in by_tag.items():
+            comps.sort(key=lambda c: -c[0])
+            for _, m in comps[1:]:
+                self.tag[0, 0][torch.from_numpy(m).to(self.dev)] = self.new_tag(like=tv / 1000)
+
+    def clean_debris(self):
+        """min_viable'dan küçük bileşenler (koruma süresindeki tohumlar hariç) silinir, besinleri R'ye döner."""
+        protect = {(y, x) for y, x, t0 in self.planted if self.t - t0 < self.p.seed_grace}
+        small = np.zeros((self.size, self.size), bool)
+        for _, m, n in self.components():
+            if n < self.p.min_viable and not any(m[y, x] for y, x in protect):
+                small |= m
+        if small.any():
+            sm = torch.from_numpy(small).to(self.dev)
+            self.R[0, 0][sm] += self.x[0, M_CH][sm] + self.x[0, E_CH][sm]
+            for t in (self.x, self.g, self.tag):
+                t[0, :, sm] = 0
+
+    # --- sönen dış kesmeler ---
+    def current_cut_rate(self):
+        return self.p.cut_rate * max(0.0, 1 - self.t / self.p.anneal_steps)
+
+    def predation(self):
+        p, rate0 = self.p, self.current_cut_rate()
+        if rate0 <= 0:
+            return
+        for l, oid in list(self.label_to_id.items()):
+            o = self.orgs[oid]
+            rate = min(1.0, rate0 * o.area / p.cut_ref_area)
+            if o.area >= p.min_cut_area and self.rng.random() < 1 - (1 - rate) ** p.track_every:
+                self.cut(self.labels == l, self.rng.random() * 2 * math.pi)
+                self.events.append((self.t, "kesme", oid, o.parent))
+                self.last_cut[oid] = self.t
+
+    def cut(self, comp, angle, band=1.0):
+        """World.cut; kesilen bant ve ezilen hücrelerin besini dünyaya düzgün dağıtılarak geri verilir
+        (kapalı döngü). Miktar küçüktür (bant ~ beden eni) ve 192²'ye yayılınca ihmal edilebilir."""
+        before = self.nutrient()
+        super().cut(comp, angle, band)
+        self.R += (before - self.nutrient()) / self.R.numel()
+
+    # --- izleme ---
+    def track(self):
+        self._ev_mark = len(self.events)
+        self._prev_cent = {oid: o.centroid for oid, o in self.orgs.items() if o.alive}
+        super().track()
+
+    def record(self):
+        super().record()
+        h = self.history[-1]
+        live = [o for o in self.orgs.values() if o.alive]
+        # bölünme nedenleri: önceki kayıttaki ebeveyn etiketine göre
+        counts = {"self": 0, "attack": 0, "disturbance": 0}
+        w = self.p.cause_window
+        for e in list(self.events[self._ev_mark :]):
+            if e[1] != "dogum" or e[3] < 0:
+                continue
+            par = e[3]
+            if self.t - self.last_cut.get(par, -10**9) <= w:
+                cause = "disturbance"
+            elif self.t - self.last_attacked.get(self.org_tag.get(par, -1), -10**9) <= w:
+                cause = "attack"
+            else:
+                cause = "self"
+            counts[cause] += 1
+            self.events.append((self.t, "bolunme", e[2], par, cause))
+        # canlı organizma -> etiket anahtarı
+        tags = np.round(self.tag[0, 0].cpu().numpy() * 1000).astype(np.int64)
+        self.org_tag = {}
+        for l, oid in self.label_to_id.items():
+            cells = tags[self.labels == l]
+            if cells.size:
+                self.org_tag[oid] = int(cells[0])
+        moves = [math.dist(o.centroid, self._prev_cent[o.id]) for o in live if o.id in self._prev_cent]
+        eaten, up = float(self.eaten_acc.sum()), float(self.uptake_acc.sum())
+        self.eaten_acc.zero_()
+        self.uptake_acc.zero_()
+        h.update({
+            "speed": float(np.mean(moves)) / self.p.track_every if moves else 0.0,
+            "pred_share": eaten / (eaten + up) if eaten + up > 0 else 0.0,
+            "fission_self": counts["self"],
+            "fission_attack": counts["attack"],
+            "fission_disturbance": counts["disturbance"],
+            "cut_rate": self.current_cut_rate(),
+            "nutrient_total": self.nutrient(),
+        })
+        if self.t > 0 and not (self.x[0, M_CH] > ALIVE_THRESHOLD).any():  # hiç canlı madde kalmadı
+            self.extinct = True

@@ -214,7 +214,7 @@ def test_eat_transfers_to_attacker():
     x, tag, R, A, B = two_bodies(LifeCA())
     a = torch.zeros(1, 1, H, W)
     a[0, 0][A] = 1.0
-    x2, R2, lost = eat(x, R, tag, a, LifePhysics())
+    x2, R2, lost, _ = eat(x, R, tag, a, LifePhysics())
     assert x2[0, M_CH][B].sum() < x[0, M_CH][B].sum()
     assert x2[0, E_CH][A].sum() > x[0, E_CH][A].sum()
     assert lost[0, 0][A].sum() == 0 and lost[0, 0][B].sum() > 0
@@ -223,7 +223,7 @@ def test_eat_transfers_to_attacker():
 def test_same_tag_cannot_eat():
     x, tag, R, A, B = two_bodies(LifeCA())
     tag = torch.where(tag > 0, torch.full_like(tag, 2.0), tag)
-    x2, R2, lost = eat(x, R, tag, torch.ones(1, 1, H, W), LifePhysics())
+    x2, R2, lost, _ = eat(x, R, tag, torch.ones(1, 1, H, W), LifePhysics())
     assert lost.sum() == 0 and torch.allclose(x2[:, M_CH], x[:, M_CH])
     # saldırı hedef olmasa da maliyetlidir: enerji yalnız maliyet kadar R'ye geçer
     assert torch.allclose(x[:, E_CH] - x2[:, E_CH], torch.full_like(x[:, E_CH], LifePhysics().c_attack) * (x[:, M_CH] > 0))
@@ -233,7 +233,7 @@ def test_same_tag_cannot_eat():
 def test_mutual_attack_conserves_and_nonnegative():
     x, tag, R, A, B = two_bodies(LifeCA())
     phys = LifePhysics(k_eat=2.0)  # kurbanın tamamı yenebilir
-    x2, R2, _ = eat(x, R, tag, torch.ones(1, 1, H, W), phys)
+    x2, R2, _, _ = eat(x, R, tag, torch.ones(1, 1, H, W), phys)
     assert x2[:, M_CH].min() >= 0 and x2[:, E_CH].min() >= 0
     assert torch.isclose(tot(x2, R2), tot(x, R), rtol=1e-5)
 
@@ -242,7 +242,7 @@ def test_victim_potential_rises():
     x, tag, R, A, B = two_bodies(LifeCA())
     a = torch.zeros(1, 1, H, W)
     a[0, 0][A] = 1.0
-    x2, _, _ = eat(x, R, tag, a, LifePhysics())
+    x2, _, _, _ = eat(x, R, tag, a, LifePhysics())
     V = x2[0, V_CH]
     assert V[6, 6] > 0 and V[6, 8] == 0 and V[A].sum() == 0
 
@@ -286,3 +286,19 @@ def test_train_life_smoke(tmp_path):
         f"out_dir={tmp_path}", "damage.start_iter=0", "snapshot_every=1", "model.hidden_dim=16"])
     out = train(cfg)
     assert (out / "model.pt").exists() and (out / "log.csv").exists()
+
+
+def test_eat_gain_matches_victim_loss():
+    x, tag, R, A, B = two_bodies(LifeCA())
+    a = torch.zeros(1, 1, H, W)
+    a[0, 0][A] = 1.0
+    x2, R2, lost, gain = eat(x, R, tag, a, LifePhysics())
+    eloss = x[0, E_CH][B].sum() - x2[0, E_CH][B].sum()
+    assert torch.isclose(gain.sum(), lost.sum() + eloss) and gain[0, 0][B].sum() == 0
+
+
+def test_life_step_reports_uptake():
+    m = LifeCA()
+    x, g, R = blob_world(m, n=1)
+    _, _, _, _, out = life_step(m, x, g, R, LifePhysics())
+    assert out["uptake"].sum() > 0 and out["uptake"].shape == R.shape
