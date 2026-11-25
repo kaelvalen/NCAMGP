@@ -161,9 +161,10 @@ def train(cfg):
             apply_damage(x[bs - n :], g[bs - n :], gen, dcfg, phys)
         steps = int(torch.randint(smin, smax + 1, (1,), generator=gen))
         seg = cfg.get("checkpoint_segment", 16)
-        x, g, R = run_life(model, x, g, R, phys, steps - hk, seg)
+        # g = None: ön eğitimde genom sıfır ve FiLM kapalı, genom taşınmaz (pool'daki g sıfır kalır)
+        x, _, R = run_life(model, x, None, R, phys, steps - hk, seg)
         desc_prev = body_descriptors(x)
-        x, g, R = run_life(model, x, g, R, phys, hk, seg)
+        x, _, R = run_life(model, x, None, R, phys, hk, seg)
         L = life_losses(desc_prev, x, cfg)
         loss = L["total"].mean()
         opt.zero_grad(set_to_none=True)
@@ -171,7 +172,7 @@ def train(cfg):
         normalize_grads(model)
         opt.step()
         sched.step()
-        pool_x[idx], pool_g[idx], pool_R[idx] = x.detach(), g.detach(), R.detach()
+        pool_x[idx], pool_R[idx] = x.detach(), R.detach()
         pool_loss[idx] = L["total"].detach()
         mean_mass = x[:, M_CH].flatten(1).sum(1).mean().item()
         if it % cfg.get("log_every", 50) == 0 or it == cfg["iterations"] - 1:
@@ -186,7 +187,7 @@ def train(cfg):
                 xe, ge, Re = seed_state(model, 8, size, dev)
                 frames = []
                 for s in range(400):
-                    xe, ge, Re, _, _ = life_step(model, xe, ge, Re, phys)
+                    xe, _, Re, _, _ = life_step(model, xe, None, Re, phys)
                     if s in (49, 399):
                         frames += list(to_uint8(render(xe)))
             save_grid(out / "snapshots" / f"gallery_{it:05d}.png", frames, scale=2, ncol=8)
