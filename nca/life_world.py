@@ -26,6 +26,7 @@ from .world import World, WorldParams
 class LifeParams(WorldParams):
     anneal_steps: int = 50000  # kesme oranı bu adımda sıfıra iner
     cause_window: int = 50  # bölünme nedenini belirlerken geriye bakılan adım
+    attack_frac_min: float = 0.05  # hücre kütlesinin bu oranından az kemirme saldırı sayılmaz
 
 
 class LifeWorld(World):
@@ -42,6 +43,7 @@ class LifeWorld(World):
         self.org_tag = {}  # canlı organizma -> etiket anahtarı (önceki kayıttan)
         self._ev_mark = 0
         self._prev_cent = {}
+        self.seed_tags = []  # (etiket anahtarı, ekildiği adım): koruma süresi
         super().__init__(model, phys, size, n_seeds, params, seed, genomes.to(dev), groups)
 
     @staticmethod
@@ -60,9 +62,7 @@ class LifeWorld(World):
         self.x, self.R, lost, gain = eat(self.x, self.R, self.tag, out["attack"], self.phys)
         self.eaten_acc += self.phys.eta * gain
         self.uptake_acc += out["uptake"]
-        if (lost > 0).any():
-            for k in np.unique(np.round(self.tag[lost > 0].cpu().numpy() * 1000).astype(np.int64)):
-                self.last_attacked[int(k)] = self.t
+        self.note_attacks(lost, self.x[:, M_CH : M_CH + 1])
         alive = self.x[:, M_CH : M_CH + 1] > ALIVE_THRESHOLD
         if self.kappa > 0:
             self.g = self.homogenize(self.g, self.tag, alive)
@@ -70,9 +70,16 @@ class LifeWorld(World):
         self.t += 1
         if self.t % p.track_every == 0:
             self.retag_splits()
-            self.clean_debris()
             self.track()
             self.predation()
+
+    def note_attacks(self, lost, m_after):
+        """Hücre kütlesinin en az attack_frac_min'ini kaybettiren yeme saldırı sayılır (atanın küçük
+        arka plan saldırı çıktısı teması hafifçe kemirir; bu bölünme nedeni sayılmaz)."""
+        hit = lost > self.p.attack_frac_min * (m_after + lost)
+        if hit.any():
+            for k in np.unique(np.round(self.tag[hit].cpu().numpy() * 1000).astype(np.int64)):
+                self.last_attacked[int(k)] = self.t
 
     def components(self):
         """Etiket başına bağlı bileşenler (canlı hücreler, 8-bağlantı): [(etiket anahtarı, maske, boyut)]."""
@@ -97,18 +104,27 @@ class LifeWorld(World):
             for _, m in comps[1:]:
                 self.tag[0, 0][torch.from_numpy(m).to(self.dev)] = self.new_tag(like=tv / 1000)
 
-    def clean_debris(self):
-        """min_viable'dan küçük bileşenler (koruma süresindeki tohumlar hariç) silinir, besinleri R'ye döner."""
-        protect = {(y, x) for y, x, t0 in self.planted if self.t - t0 < self.p.seed_grace}
-        small = np.zeros((self.size, self.size), bool)
-        for _, m, n in self.components():
-            if n < self.p.min_viable and not any(m[y, x] for y, x in protect):
+    def plant(self, gv, pos=None, tries=50, group=None):
+        super().plant(gv, pos, tries, group)
+        y, x, t0 = self.planted[-1]
+        self.seed_tags.append((self.tag_key(self.tag[0, 0, y, x]), t0))
+
+    def clean_small(self, lab, sizes):
+        """World.track'in döküntü temizliği: min_viable'dan küçük bileşenler silinir, besinleri R'ye döner.
+        Koruma süresindeki tohumlar etiketleriyle korunur (tohum ekildiği hücreden kayabilir)."""
+        grace = {k for k, t0 in self.seed_tags if self.t - t0 < self.p.seed_grace}
+        tags = np.round(self.tag[0, 0].cpu().numpy() * 1000).astype(np.int64)
+        small = np.zeros(lab.shape, bool)
+        for i in np.nonzero(np.asarray(sizes) < self.p.min_viable)[0]:
+            m = lab == i + 1
+            if int(tags[m][0]) not in grace:
                 small |= m
         if small.any():
             sm = torch.from_numpy(small).to(self.dev)
             self.R[0, 0][sm] += self.x[0, M_CH][sm] + self.x[0, E_CH][sm]
             for t in (self.x, self.g, self.tag):
                 t[0, :, sm] = 0
+            lab[small] = 0
 
     # --- sönen dış kesmeler ---
     def current_cut_rate(self):

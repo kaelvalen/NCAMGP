@@ -71,3 +71,32 @@ def test_extinction_does_not_crash():
     for _ in range(20):
         w.step()
     assert w.extinct and w.history[-1]["n_org"] == 0
+
+
+def test_moving_seed_protected_during_grace():
+    w = empty_world()
+    w.plant(torch.zeros(w.model.n_genome), pos=(10, 10))
+    tagv = float(w.tag[0, 0, 10, 10])
+    w.x[0, :, 10, 12] = w.x[0, :, 10, 10]  # tohum ekildiği hücreden kaydı
+    w.tag[0, 0, 10, 12] = tagv
+    w.x[0, :, 10, 10] = 0
+    w.tag[0, 0, 10, 10] = 0
+    n0 = nutrient(w)
+    w.t = 10
+    w.track()
+    assert w.x[0, M_CH, 10, 12] > 0.1  # koruma süresinde silinmedi
+    w.t = w.p.seed_grace + 10
+    w.track()
+    assert w.x[0, M_CH].sum() == 0 and abs(nutrient(w) - n0) / n0 < 1e-5  # süre bitince döküntü, besin R'ye
+
+
+def test_background_nibbling_is_not_an_attack():
+    w = empty_world()
+    w.tag[0, 0, 5, 5], w.tag[0, 0, 9, 9] = 3.0, 6.0
+    lost = torch.zeros(1, 1, 32, 32)
+    m_after = torch.ones(1, 1, 32, 32)
+    lost[0, 0, 5, 5] = 0.01  # atanın arka plan kemirmesi (%1)
+    lost[0, 0, 9, 9] = 0.30  # gerçek saldırı
+    w.t = 100
+    w.note_attacks(lost, m_after)
+    assert w.last_attacked.get(w.tag_key(6.0)) == 100 and w.tag_key(3.0) not in w.last_attacked

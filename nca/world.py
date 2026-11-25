@@ -202,15 +202,8 @@ class World:
         lab, n = self.segment(a)
         sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1)) if n else []
         self.planted = [q for q in self.planted if self.t - q[2] < p.seed_grace]
-        if n:  # yaşayamayacak kadar küçük döküntüyü temizle (koruma süresindeki tohumlar hariç)
-            small_ids = set((1 + np.nonzero(np.asarray(sizes) < p.min_viable)[0]).tolist())
-            small_ids -= {int(lab[y, x]) for y, x, _ in self.planted}
-            small = np.isin(lab, list(small_ids))
-            if small.any():
-                m = torch.from_numpy(small).to(self.dev)
-                for t in (self.x, self.g, self.E, self.tag):
-                    t[0, :, m] = 0
-                lab[small] = 0
+        if n:
+            self.clean_small(lab, sizes)
         prev_lab, prev_map = self.labels, self.label_to_id
         new_map, claimed = {}, {}
         g = self.g[0].cpu().numpy()
@@ -257,6 +250,17 @@ class World:
                 self.events.append((self.t, "olum", oid, o.parent))
         self.labels, self.label_to_id = lab, new_map
         self.record()
+
+    def clean_small(self, lab, sizes):
+        """Yaşayamayacak kadar küçük döküntüyü temizle (koruma süresindeki tohumlar hariç). lab yerinde güncellenir."""
+        small_ids = set((1 + np.nonzero(np.asarray(sizes) < self.p.min_viable)[0]).tolist())
+        small_ids -= {int(lab[y, x]) for y, x, _ in self.planted}
+        small = np.isin(lab, list(small_ids))
+        if small.any():
+            m = torch.from_numpy(small).to(self.dev)
+            for t in (self.x, self.g, self.E, self.tag):
+                t[0, :, m] = 0
+            lab[small] = 0
 
     def record(self):
         live = [o for o in self.orgs.values() if o.alive]
