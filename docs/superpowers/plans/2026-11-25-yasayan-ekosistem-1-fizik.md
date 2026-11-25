@@ -36,17 +36,17 @@ eşiği 0,1 aynı), kanal 4 V. Bu sayede `alive_cells`, `wound`, `mutate`, `make
 
 ## Odak Noktaları (incelemede)
 
-1. **Izgara kenarındaki canlı**: kenara akan kütle dışarı çıkmaz, hücrede kalır (Görev 2 testi).
-2. **Sıfır kütleli bölgede bölme**: yoğun nicelik taşınımı `0/0` ile NaN üretmemeli (Görev 2 testi).
+1. **Izgara kenarındaki canlı**: kenara akan kütle dışarı çıkmaz, hücrede kalır (Task 2 testi).
+2. **Sıfır kütleli bölgede bölme**: yoğun nicelik taşınımı `0/0` ile NaN üretmemeli (Task 2 testi).
 3. **Karşılıklı saldırı**: birbirine saldıran iki komşu canlıda kütle negatif olmamalı ve besin
-   korunmalı (Görev 4 testi).
+   korunmalı (Task 4 testi).
 4. **Tükenme**: tüm canlılar ölünce `track/record` çökmemeli, koşu tükenmeyi kaydedip erken bitmeli
-   (Görev 7 testi).
-5. **Kaynak tükenmesi**: kalabalıkta `R` hiçbir zaman negatif olmamalı (Görev 3 testi).
+   (Task 7 testi).
+5. **Kaynak tükenmesi**: kalabalıkta `R` hiçbir zaman negatif olmamalı (Task 3 testi).
 
 ---
 
-### Görev 1: `LifeCA` modeli (FiLM'li kural)
+### Task 1: `LifeCA` modeli (FiLM'li kural)
 
 **Dosyalar:**
 - Oluştur: `nca/life.py`
@@ -100,14 +100,14 @@ durum, kanal 3 ∈ [0, 1].
 
 ---
 
-### Görev 2: Kütle korunumlu taşınım
+### Task 2: Kütle korunumlu taşınım
 
 **Dosyalar:**
 - Değiştir: `nca/life.py`
 - Test: `tests/test_life.py`
 
 **Arayüzler:**
-- Tüketir: `DIRS` (Görev 1).
+- Tüketir: `DIRS` (Task 1).
 - Üretir: `transport(m, flow, ext, inten, tag=None, self_tol=0.05) -> (m2, ext2, inten2, tag2)`
   - `m (B,1,H,W)`, `flow (B,9,H,W)`, `ext (B,k,H,W)` yaygın nicelikler (kütle gibi
     taşınır; burada `E`), `inten (B,j,H,W)` yoğun nicelikler (kütle ağırlıklı ortalanır: RGB,
@@ -150,7 +150,7 @@ def test_transport_tags_never_mix():                # iki farklı etiketli blok,
 
 ---
 
-### Görev 3: Adım fiziği `life_step` (metabolizma, ölüm, potansiyel)
+### Task 3: Adım fiziği `life_step` (metabolizma, ölüm, potansiyel)
 
 **Dosyalar:**
 - Değiştir: `nca/life.py`, `nca/evo.py` (potansiyel güncellemesini yardımcıya çıkar)
@@ -163,10 +163,10 @@ def test_transport_tags_never_mix():                # iki farklı etiketli blok,
     `evo.step` içindeki V bloğunun aynısıdır ve `evo.step` artık bunu çağırır.
   - `@dataclass class LifePhysics`: mevcut `Physics` alanları (`v_decay=0.97, v_gain=1.0,
     v_diffuse=0.2, v_max=2.0, kappa=0.02`) + `k_up=0.1, c_m=0.002, c_move=0.01, r_g=0.05,
-    r_diffuse=0.25, self_tol=0.05`. (Sayılar başlangıç değeridir, Görev 6'da ayarlanabilir.)
+    r_diffuse=0.25, self_tol=0.05`. (Sayılar başlangıç değeridir, Task 6'da ayarlanabilir.)
     `World.__init__` `type(phys)(**vars(phys))` ile kopyaladığı için dataclass uygundur.
   - `life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None) -> (x, g, R, tag, out)`.
-    `out` model çıktıları dict'idir (`attack` Görev 4'te kullanılır) ve `moved (B,1,H,W)`
+    `out` model çıktıları dict'idir (`attack` Task 4'te kullanılır) ve `moved (B,1,H,W)`
     içerir. `F=None` ise yabancı kütle sıfırdır (tek canlı).
 - Sıra (tasarım 4.1, 4.2, 4.4, 4.5):
   1. Kural. Ateşlemeyen hücrede `flow = one_hot(kal)`, `grow = 0`, `attack = 0`, Δ = 0.
@@ -206,7 +206,7 @@ def test_life_step_backprop():                    # loss = x[:, M_CH].sum(); los
 
 ---
 
-### Görev 4: Yeme
+### Task 4: Yeme
 
 **Dosyalar:**
 - Değiştir: `nca/life.py`
@@ -251,7 +251,7 @@ def test_victim_potential_rises():                # B kenarında V > 0, A'da V =
 
 ---
 
-### Görev 5: Ön eğitim "en basit canlı"
+### Task 5: Ön eğitim "en basit canlı"
 
 **Dosyalar:**
 - Oluştur: `nca/train_life.py`, `configs/life.yaml`
@@ -280,7 +280,7 @@ def test_victim_potential_rises():                # B kenarında V > 0, A'da V =
 - `configs/life.yaml`: `grid: 64`, `batch_size: 8`, `pool_size: 1024`, `steps: [64, 96]`,
   `homeo_k: 16`, `lr: 2e-3`, `iterations: 10000`, `A_min: 40`, `A_max: 400`, `e_min: 0.2`,
   `min_viable: 10`, `damage` (`ancestor.yaml` ile aynı), model `n_genome: 32`. Kayıp ağırlıkları
-  1'dir (Görev 6'da ayarlanır).
+  1'dir (Task 6'da ayarlanır).
 
 - [ ] **Adım 1: Başarısız testleri yaz**
 
@@ -305,7 +305,7 @@ def test_train_life_smoke(tmp_path):               # --set iterations=3 grid=32 
 
 ---
 
-### Görev 6: Ön eğitimi koş ve Y1 (deney görevi)
+### Task 6: Ön eğitimi koş ve Y1 (deney görevi)
 
 **Dosyalar:**
 - Oluştur: `experiments/y1_viability.py`
@@ -333,7 +333,7 @@ def test_train_life_smoke(tmp_path):               # --set iterations=3 grid=32 
 
 ---
 
-### Görev 7: `LifeWorld`
+### Task 7: `LifeWorld`
 
 **Dosyalar:**
 - Oluştur: `nca/life_world.py`, `configs/life_world.yaml`
@@ -398,7 +398,7 @@ def test_extinction_does_not_crash():               # tüm hücreleri sil, 20 ad
 
 ---
 
-### Görev 8: `σ_P` (film_scale) kalibrasyonu ve süre ölçümü (deney görevi)
+### Task 8: `σ_P` (film_scale) kalibrasyonu ve süre ölçümü (deney görevi)
 
 **Dosyalar:**
 - Oluştur: `experiments/calibrate_film.py`
@@ -420,7 +420,7 @@ def test_extinction_does_not_crash():               # tüm hücreleri sil, 20 ad
 
 ---
 
-### Görev 9: İlk evrim koşuları ve karar noktası raporu (deney görevi)
+### Task 9: İlk evrim koşuları ve karar noktası raporu (deney görevi)
 
 **Dosyalar:**
 - Oluştur: `experiments/y_run.py`, `analysis/plots_life.py`
