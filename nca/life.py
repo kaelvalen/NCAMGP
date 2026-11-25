@@ -8,13 +8,14 @@ Kaynak R (B, 1, H, W) ve yabancı kütle F (B, 1, H, W) kuralın algıladığı 
 """
 
 import math
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F_
 
-from .evo import V_CH
-from .model import KERNELS, PERCEPTIONS
+from .evo import V_CH, update_potential
+from .model import ALIVE_THRESHOLD, KERNELS, PERCEPTIONS
 
 RGB = slice(0, 3)
 M_CH = 3
@@ -119,7 +120,7 @@ def transport(m, flow, ext, inten, tag=None):
             allowed.append(ok.to(m.dtype))
         allowed = torch.cat(allowed, 1)  # (B, 8, H, W)
     move = flow[:, 1:] * allowed
-    stay = 1 - move.sum(1, keepdim=True)
+    stay = flow[:, :1] + (flow[:, 1:] * (1 - allowed)).sum(1, keepdim=True)  # 1 - Σmove yuvarlamada negatife düşebilir
     m2, ext2 = m * stay, ext * stay
     mq = inten * m
     num = mq * stay
@@ -136,3 +137,85 @@ def transport(m, flow, ext, inten, tag=None):
                 tag2 = torch.maximum(tag2, shift(tag * ((m * f) > 0), dy, dx))
     inten2 = torch.where(m2 > 1e-8, num / m2.clamp(min=1e-8), torch.zeros_like(num))
     return m2, ext2, inten2, (tag2 if tag is not None else None)
+
+
+# --- adım fiziği ---
+@dataclass
+class LifePhysics:
+    """Elle yazılmış fizik sabitleri. Besin tek bir para birimidir: R (kaynak), m (kütle), E (enerji)."""
+
+    v_decay: float = 0.97
+    v_gain: float = 1.0
+    v_diffuse: float = 0.2
+    v_max: float = 2.0
+    kappa: float = 0.02  # aynı birey içinde genom homojenleşmesi (dünyada uygulanır)
+    k_up: float = 0.1  # hücre adım başına yerel R'nin bu oranını alır (kütleyle, en çok 1'e kadar)
+    c_m: float = 0.002  # kütle başına bakım
+    c_move: float = 0.01  # yerinden giden kütle başına hareket maliyeti
+    r_g: float = 0.05  # büyüme: enerjiyi kütleye çevirme hızı
+    r_diffuse: float = 0.25  # kaynak difüzyonu (korunumlu, 4 komşu)
+    k_eat: float = 0.2
+    eta: float = 0.6
+    c_attack: float = 0.005
+
+
+def diffuse(R, d):
+    """Korunumlu difüzyon: komşu çiftleri arasında simetrik alışveriş, ızgara kenarından akı yok."""
+    inside = torch.ones_like(R)
+    acc = torch.zeros_like(R)
+    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        acc = acc + neighbor(inside, dy, dx) * (neighbor(R, dy, dx) - R)
+    return R + d / 4 * acc
+
+
+def life_mask(m):
+    """Kendisi veya 3x3 komşularından biri canlı (Mordvintsev canlılık kuralı)."""
+    return F_.max_pool2d(m, 3, stride=1, padding=1) > ALIVE_THRESHOLD
+
+
+def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
+    """Bir adım: kural, büyüme ve hareket maliyeti (kaynak hücrede), taşınım, kaynak alımı, bakım,
+    ölüm (besin R'ye döner), yara potansiyeli, kaynak difüzyonu. ΣR + Σm + ΣE korunur.
+    Döndürür (x, g, R, tag, out); out: kural çıktıları (ateşleme maskeli) + "moved"."""
+    fire_rate = model.fire_rate if fire_rate is None else fire_rate
+    m, E = x[:, M_CH : M_CH + 1], x[:, E_CH : E_CH + 1]
+    was_alive = m > ALIVE_THRESHOLD
+    F = torch.zeros_like(m) if F is None else F
+    out = model(x, R, F, g)
+    fm = ((torch.rand_like(m) <= fire_rate) & (m > 0)).to(x.dtype)
+    stay1 = torch.zeros_like(out["flow"])
+    stay1[:, 0] = 1
+    flow = out["flow"] * fm + stay1 * (1 - fm)
+    out = {**out, "flow": flow, "grow": out["grow"] * fm, "attack": out["attack"] * fm}
+    rgb = x[:, RGB] + out["drgb"] * fm
+    h = x[:, H0:] + out["dh"] * fm
+    # büyüme ve hareket maliyeti kaynak hücrede, eldeki enerjiyle sınırlı (E negatife düşmez)
+    Ep = E.clamp(min=0)
+    dm = phys.r_g * out["grow"] * Ep
+    moved = m * (1 - flow[:, :1])
+    cmove = torch.minimum(phys.c_move * moved, Ep - dm)
+    m, E, R = m + dm, E - dm - cmove, R + cmove
+    nh = h.shape[1]
+    m, E, inten, tag = transport(m, flow, E, torch.cat([rgb, h, g], 1), tag)
+    rgb, h, g = inten[:, :3], inten[:, 3 : 3 + nh], inten[:, 3 + nh :]
+    u = torch.minimum(R, phys.k_up * R * m.clamp(0, 1))
+    c = phys.c_m * m
+    R, E = R - u + c, E + u - c
+    # ölüm: açlık (E ≤ 0) ya da canlı komşusu olmayan ince kütle; besin R'ye döner. E < 0 artığı
+    # aynı adımda R'ye eklenen bakımın karşılanmayan kısmıdır, R negatife düşmez.
+    dead = (m > 0) & ((E <= 0) | ~life_mask(m))
+    df = dead.to(x.dtype)
+    R = R + (m + E) * df
+    keep = 1 - df
+    m, E, rgb, h = m * keep, E * keep, rgb * keep, h * keep
+    with torch.no_grad():
+        g = g * keep
+        if tag is not None:
+            tag = tag * keep
+    xn = torch.cat([rgb, m, x[:, V_CH : V_CH + 1], E, h], 1)
+    with torch.no_grad():
+        V = update_potential(xn, was_alive, m > ALIVE_THRESHOLD, phys)
+    xn = torch.cat([rgb, m, V, E, h], 1)
+    R = diffuse(R, phys.r_diffuse)
+    out["moved"] = moved
+    return xn, g, R, tag, out

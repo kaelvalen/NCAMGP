@@ -90,16 +90,21 @@ def step(model, x, g, phys, fire_rate=None):
     x = x * (pre_life & life_mask(x)).to(x.dtype)
     with torch.no_grad():
         alive = alive_cells(x)
-        af = alive.to(x.dtype)
-        died = (was_alive & ~alive).to(x.dtype)
-        V = x[:, V_CH : V_CH + 1] * phys.v_decay
-        V = V + phys.v_gain * box3(died) / 8
-        nb_v, nb_n = box3(V * af), box3(af)
-        V = V + phys.v_diffuse * (nb_v / nb_n.clamp(min=1) - V)
-        V = (V * af).clamp(0, phys.v_max)
+        V = update_potential(x, was_alive, alive, phys)
         g = inherit(g, was_alive, alive, phys.kappa)
     x = torch.cat([x[:, :V_CH], V, x[:, V_CH + 1 :]], 1)
     return x, g
+
+
+def update_potential(x, was_alive, alive, phys):
+    """Yara potansiyeli: söner, ölen komşu oranıyla artar, canlı doku içinde yayılır. (B, 1, H, W)."""
+    af = alive.to(x.dtype)
+    died = (was_alive & ~alive).to(x.dtype)
+    V = x[:, V_CH : V_CH + 1] * phys.v_decay
+    V = V + phys.v_gain * box3(died) / 8
+    nb_v, nb_n = box3(V * af), box3(af)
+    V = V + phys.v_diffuse * (nb_v / nb_n.clamp(min=1) - V)
+    return (V * af).clamp(0, phys.v_max)
 
 
 def inherit(g, was_alive, alive, kappa):
