@@ -93,6 +93,30 @@ def neighbor(t, dy, dx):
     return shift(t, -dy, -dx)
 
 
+_NB = [(dy + 1) * 3 + (dx + 1) for dy, dx in DIRS]  # unfold'da (dy, dx) komşusunun indeksi
+_OPP = [DIRS.index((-dy, -dx)) for dy, dx in DIRS]  # ters yön
+_GATHER = {}
+
+
+def neighbors8(t):
+    """(B, C, H, W) -> (B, C, 8, H, W): out[:, :, k, y, x] = t[y + dy_k, x + dx_k] (sıfır dolgulu)."""
+    B, C, H, W = t.shape
+    return F_.unfold(t, 3, padding=1).view(B, C, 9, H, W)[:, :, _NB]
+
+
+def gather_flow(P):
+    """P (B, C, 8, H, W): kaynak hücreden k yönüne giden pay -> hedefte toplanan (B, C, H, W).
+    Tek gruplanmış konvolüsyon: hedef (y, x), k payını (y - dy_k, x - dx_k) kaynağından alır."""
+    B, C, K, H, W = P.shape
+    key = (C, P.device, P.dtype)
+    if key not in _GATHER:
+        w = torch.zeros(C, K, 3, 3, dtype=P.dtype, device=P.device)
+        for k, (dy, dx) in enumerate(DIRS):
+            w[:, k, 1 - dy, 1 - dx] = 1
+        _GATHER[key] = w
+    return F_.conv2d(P.reshape(B, C * K, H, W), _GATHER[key], padding=1, groups=C)
+
+
 def transport(m, flow, ext, inten, tag=None):
     """Kütle korunumlu taşınım. Her hücre kütlesini `flow` kesirlerine göre (0 = kal, 1..8 = DIRS)
     komşularına dağıtır; `ext` (yaygın) kütle gibi taşınır, `inten` (yoğun) kütle ağırlıklı ortalanır.
@@ -100,44 +124,36 @@ def transport(m, flow, ext, inten, tag=None):
     hücresine ya da canlı komşuları arasında iki farklı birey bulunan boş hücreye giden pay geri döner.
     Döndürür (m2, ext2, inten2, tag2); tag2, tag None ise None."""
     with torch.no_grad():
-        inside = torch.ones_like(m)
-        if tag is not None:
+        if tag is None:
+            allowed = neighbors8(torch.ones_like(m))[:, 0]  # ızgara içi
+        else:
             alive = m > 0  # eşik altı ince kütle de dolu sayılır: iki birey tek hücrede karışmaz
             big = torch.tensor(1e9, dtype=m.dtype, device=m.device)
             tmax = F_.max_pool2d(torch.where(alive, tag, -big), 3, 1, 1)  # canlı komşu etiketlerinin
             tmin = -F_.max_pool2d(torch.where(alive, -tag, -big), 3, 1, 1)  # en büyüğü / en küçüğü
-            any_alive = tmax > -big / 2
-        allowed = []
-        for dy, dx in DIRS:
-            ok = neighbor(inside, dy, dx) > 0
-            if tag is not None:
-                t_tag = neighbor(tag, dy, dx)
-                occupied = neighbor(alive.to(m.dtype), dy, dx) > 0
-                same = (t_tag - tag).abs() < 1e-4
-                # boş hedef: canlı komşuları yalnız bu bireyden olmalı (iki bireyin arasına doğum yok)
-                clean = ~neighbor(any_alive.to(m.dtype), dy, dx).bool() | (
-                    ((neighbor(tmax, dy, dx) - tag).abs() < 1e-4) & ((neighbor(tmin, dy, dx) - tag).abs() < 1e-4))
-                ok = ok & torch.where(occupied, same, clean)
-            allowed.append(ok.to(m.dtype))
-        allowed = torch.cat(allowed, 1)  # (B, 8, H, W)
-    move = flow[:, 1:] * allowed
+            any_alive = (tmax > -big / 2).to(m.dtype)
+            nb = neighbors8(torch.cat([torch.ones_like(m), tag, alive.to(m.dtype), tmax, tmin, any_alive], 1))
+            inside, t_tag, occupied, n_max, n_min, n_any = nb.unbind(1)
+            same = (t_tag - tag).abs() < 1e-4
+            # boş hedef: canlı komşuları yalnız bu bireyden olmalı (iki bireyin arasına doğum yok)
+            clean = (n_any == 0) | (((n_max - tag).abs() < 1e-4) & ((n_min - tag).abs() < 1e-4))
+            allowed = ((inside > 0) & torch.where(occupied > 0, same, clean)).to(m.dtype)
+    move = flow[:, 1:] * allowed  # (B, 8, H, W)
     stay = flow[:, :1] + (flow[:, 1:] * (1 - allowed)).sum(1, keepdim=True)  # 1 - Σmove yuvarlamada negatife düşebilir
-    m2, ext2 = m * stay, ext * stay
-    mq = inten * m
-    num = mq * stay
-    if tag is not None:
-        with torch.no_grad():
-            tag2 = tag * ((m * stay) > 0)
-    for k, (dy, dx) in enumerate(DIRS):
-        f = move[:, k : k + 1]
-        m2 = m2 + shift(m * f, dy, dx)
-        ext2 = ext2 + shift(ext * f, dy, dx)
-        num = num + shift(mq * f, dy, dx)
-        if tag is not None:
-            with torch.no_grad():
-                tag2 = torch.maximum(tag2, shift(tag * ((m * f) > 0), dy, dx))
+    q = torch.cat([m, ext, inten * m], 1)  # kütle, yaygın, kütle x yoğun
+    q2 = q * stay + gather_flow(q[:, :, None] * move[:, None])
+    ne = ext.shape[1]
+    m2, ext2, num = q2[:, :1], q2[:, 1 : 1 + ne], q2[:, 1 + ne :]
     inten2 = torch.where(m2 > 1e-8, num / m2.clamp(min=1e-8), torch.zeros_like(num))
-    return m2, ext2, inten2, (tag2 if tag is not None else None)
+    tag2 = None
+    if tag is not None:
+        with torch.no_grad():  # katkı verenlerin etiketi (engel sayesinde hepsi aynı)
+            sent = tag[:, :, None] * ((m[:, :, None] * move[:, None]) > 0)  # (B, 1, 8, H, W)
+            inc = neighbors8(sent[:, 0])  # (B, 8 yön, 8 komşu, H, W)
+            k = torch.arange(8, device=m.device)
+            incoming = inc[:, k, torch.tensor(_OPP, device=m.device)]  # k yönüne gidenin hedefe gelişi
+            tag2 = torch.maximum(tag * ((m * stay) > 0), incoming.amax(1, keepdim=True))
+    return m2, ext2, inten2, tag2
 
 
 # --- adım fiziği ---
