@@ -219,3 +219,45 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
     R = diffuse(R, phys.r_diffuse)
     out["moved"] = moved
     return xn, g, R, tag, out
+
+
+# --- yeme ---
+def _foreign_links(x, tag):
+    """Her yön için (B, 1, H, W) maske: hücre canlı, o yöndeki komşu canlı ve başka bireyden."""
+    m = x[:, M_CH : M_CH + 1]
+    alive = (m > ALIVE_THRESHOLD).to(x.dtype)
+    links = []
+    for dy, dx in DIRS:
+        other = (neighbor(tag, dy, dx) - tag).abs() > 1e-4
+        links.append(alive * neighbor(alive, dy, dx) * other.to(x.dtype))
+    return links
+
+
+def foreign_mass(x, tag):
+    """3x3 komşulukta başka bireylere ait canlı hücrelerin kütle toplamı (kuralın F girdisi)."""
+    m = x[:, M_CH : M_CH + 1]
+    return sum(link * neighbor(m, dy, dx) for link, (dy, dx) in zip(_foreign_links(x, tag), DIRS))
+
+
+@torch.no_grad()
+def eat(x, R, tag, attack, phys):
+    """Saldırısı a olan hücre başka bireyin komşu hücrelerinden besin alır. Kurban v, saldırganlarının
+    toplam saldırısı A ile m_v·min(1, k_eat·A) kütle ve aynı oranda enerji kaybeder; ganimet
+    saldırganlara a_j/A oranında dağılır: η payı E'ye, kalanı R'ye. Saldırı maliyeti c_attack·a
+    (eldeki enerjiyle sınırlı) R'ye gider. Kurbanın yarasında potansiyel oluşur.
+    Döndürür (x, R, lost); lost: hücre başına yenilen kütle."""
+    m, E = x[:, M_CH : M_CH + 1], x[:, E_CH : E_CH + 1]
+    links = _foreign_links(x, tag)
+    A = sum(link * neighbor(attack, dy, dx) for link, (dy, dx) in zip(links, DIRS))
+    frac = (phys.k_eat * A).clamp(max=1)
+    lost, eloss = m * frac, E.clamp(min=0) * frac
+    per_a = torch.where(A > 0, (lost + eloss) / A.clamp(min=1e-8), torch.zeros_like(A))
+    gain = attack * sum(link * neighbor(per_a, dy, dx) for link, (dy, dx) in zip(links, DIRS))
+    E = E - eloss + phys.eta * gain
+    R = R + (1 - phys.eta) * gain
+    cost = torch.minimum(phys.c_attack * attack, E.clamp(min=0)) * (m > ALIVE_THRESHOLD)
+    E, R = E - cost, R + cost
+    m = m - lost
+    V = (x[:, V_CH : V_CH + 1] + phys.v_gain * frac).clamp(max=phys.v_max)
+    x = torch.cat([x[:, :M_CH], m, V, E, x[:, E_CH + 1 :]], 1)
+    return x, R, lost

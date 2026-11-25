@@ -186,3 +186,62 @@ def test_life_step_backprop():
     x[:, M_CH].sum().backward()
     assert m.w1.weight.grad is not None and torch.isfinite(m.w1.weight.grad).all()
     assert m.w1.weight.grad.abs().sum() > 0
+
+
+# --- yeme ---
+from nca.evo import V_CH  # noqa: E402
+from nca.life import eat, foreign_mass  # noqa: E402
+
+
+def two_bodies(m):
+    """Bitişik iki blok: A (etiket 2, sütun 2-5) ve B (etiket 7, sütun 6-9)."""
+    x = torch.zeros(1, m.channels, H, W)
+    tag = torch.zeros(1, 1, H, W)
+    x[0, M_CH, 4:10, 2:10] = 1.0
+    x[0, E_CH, 4:10, 2:10] = 0.5
+    tag[0, 0, 4:10, 2:6], tag[0, 0, 4:10, 6:10] = 2.0, 7.0
+    A, B = (tag == 2.0)[0, 0], (tag == 7.0)[0, 0]
+    return x, tag, torch.ones(1, 1, H, W), A, B
+
+
+def test_foreign_mass_sees_only_other_body():
+    x, tag, _, A, B = two_bodies(LifeCA())
+    F = foreign_mass(x, tag)[0, 0]
+    assert F[6, 5] == 3.0 and F[6, 6] == 3.0 and F[6, 3] == 0 and F[6, 8] == 0
+
+
+def test_eat_transfers_to_attacker():
+    x, tag, R, A, B = two_bodies(LifeCA())
+    a = torch.zeros(1, 1, H, W)
+    a[0, 0][A] = 1.0
+    x2, R2, lost = eat(x, R, tag, a, LifePhysics())
+    assert x2[0, M_CH][B].sum() < x[0, M_CH][B].sum()
+    assert x2[0, E_CH][A].sum() > x[0, E_CH][A].sum()
+    assert lost[0, 0][A].sum() == 0 and lost[0, 0][B].sum() > 0
+
+
+def test_same_tag_cannot_eat():
+    x, tag, R, A, B = two_bodies(LifeCA())
+    tag = torch.where(tag > 0, torch.full_like(tag, 2.0), tag)
+    x2, R2, lost = eat(x, R, tag, torch.ones(1, 1, H, W), LifePhysics())
+    assert lost.sum() == 0 and torch.allclose(x2[:, M_CH], x[:, M_CH])
+    # saldırı hedef olmasa da maliyetlidir: enerji yalnız maliyet kadar R'ye geçer
+    assert torch.allclose(x[:, E_CH] - x2[:, E_CH], torch.full_like(x[:, E_CH], LifePhysics().c_attack) * (x[:, M_CH] > 0))
+    assert torch.isclose(tot(x2, R2), tot(x, R), rtol=1e-5)
+
+
+def test_mutual_attack_conserves_and_nonnegative():
+    x, tag, R, A, B = two_bodies(LifeCA())
+    phys = LifePhysics(k_eat=2.0)  # kurbanın tamamı yenebilir
+    x2, R2, _ = eat(x, R, tag, torch.ones(1, 1, H, W), phys)
+    assert x2[:, M_CH].min() >= 0 and x2[:, E_CH].min() >= 0
+    assert torch.isclose(tot(x2, R2), tot(x, R), rtol=1e-5)
+
+
+def test_victim_potential_rises():
+    x, tag, R, A, B = two_bodies(LifeCA())
+    a = torch.zeros(1, 1, H, W)
+    a[0, 0][A] = 1.0
+    x2, _, _ = eat(x, R, tag, a, LifePhysics())
+    V = x2[0, V_CH]
+    assert V[6, 6] > 0 and V[6, 8] == 0 and V[A].sum() == 0
