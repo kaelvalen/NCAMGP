@@ -217,7 +217,7 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
         V = update_potential(xn, was_alive, m > ALIVE_THRESHOLD, phys)
     xn = torch.cat([rgb, m, V, E, h], 1)
     R = diffuse(R, phys.r_diffuse)
-    out["moved"] = moved
+    out["moved"], out["uptake"] = moved, u
     return xn, g, R, tag, out
 
 
@@ -245,7 +245,8 @@ def eat(x, R, tag, attack, phys):
     toplam saldırısı A ile m_v·min(1, k_eat·A) kütle ve aynı oranda enerji kaybeder; ganimet
     saldırganlara a_j/A oranında dağılır: η payı E'ye, kalanı R'ye. Saldırı maliyeti c_attack·a
     (eldeki enerjiyle sınırlı) R'ye gider. Kurbanın yarasında potansiyel oluşur.
-    Döndürür (x, R, lost); lost: hücre başına yenilen kütle."""
+    Döndürür (x, R, lost, gain); lost: hücre başına yenilen kütle, gain: saldırganın aldığı ganimet
+    (η'dan önce; E'ye η·gain girer)."""
     m, E = x[:, M_CH : M_CH + 1], x[:, E_CH : E_CH + 1]
     links = _foreign_links(x, tag)
     A = sum(link * neighbor(attack, dy, dx) for link, (dy, dx) in zip(links, DIRS))
@@ -260,4 +261,4 @@ def eat(x, R, tag, attack, phys):
     m = m - lost
     V = (x[:, V_CH : V_CH + 1] + phys.v_gain * frac).clamp(max=phys.v_max)
     x = torch.cat([x[:, :M_CH], m, V, E, x[:, E_CH + 1 :]], 1)
-    return x, R, lost
+    return x, R, lost, gain

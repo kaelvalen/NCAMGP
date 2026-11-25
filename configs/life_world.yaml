@@ -1,0 +1,13 @@
+# Yaşayan ekosistem koşusu (experiments/y_run.py). Fizik: nca/life_world.py.
+run: life_s0             # ön eğitilmiş ata (nca/train_life.py)
+film_scale: 1.0          # genomun kurala etkisi; experiments/calibrate_film.py ile ayarlanır
+size: 192
+n_seeds: 12
+steps: 100000
+snapshot_every: 5000
+world:                   # LifeParams (nca/life_world.py, nca/world.py)
+  mu: 1.0                # yara mutasyonu gücü; mu0 koşulunda 0
+  cut_rate: 0.002        # dış kesme başlangıç oranı (alan 300 olan birey için adım başına)
+  anneal_steps: 50000    # kesmeler bu adımda sıfıra iner
+  cause_window: 50
+  min_viable: 10
