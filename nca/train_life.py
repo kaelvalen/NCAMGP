@@ -16,6 +16,7 @@ Kullanım: python -m nca.train_life configs/life.yaml --seed 0 [--set k=v ...]
 
 import argparse
 import csv
+import math
 import time
 from dataclasses import asdict
 
@@ -84,6 +85,24 @@ def life_losses(desc_prev, x, cfg):
     wts = cfg.get("weights", {})
     out["total"] = sum(wts.get(k, 1.0) * v for k, v in out.items())
     return out
+
+
+@torch.no_grad()
+def _torus_shift(w, n):
+    """Kütle ağırlıklı dairesel ortalama konumu (n uzunluklu eksen) -> merkeze taşıyan tam sayı kayma."""
+    a = torch.arange(n, device=w.device, dtype=w.dtype) * (2 * math.pi / n)
+    c = torch.atan2((w * torch.sin(a)).sum(1), (w * torch.cos(a)).sum(1)) * n / (2 * math.pi)
+    return torch.round(n // 2 - c).long() % n
+
+
+def center_torus(x, R):
+    """Sarmal arenada her örneği kütle merkezi ortaya gelecek biçimde kaydırır (fizik kaymayla değişmez);
+    kenardan geçen beden kayıplarda ikiye bölünmüş sayılmasın. (x, R) döndürür."""
+    m = x[:, M_CH].clamp(min=0)
+    sy, sx = _torus_shift(m.sum(2), m.shape[1]), _torus_shift(m.sum(1), m.shape[2])
+    xs = [torch.roll(x[i], (int(sy[i]), int(sx[i])), (1, 2)) for i in range(len(x))]
+    Rs = [torch.roll(R[i], (int(sy[i]), int(sx[i])), (1, 2)) for i in range(len(R))]
+    return torch.stack(xs), torch.stack(Rs)
 
 
 def run_life(model, x, g, R, phys, steps, segment):
@@ -156,6 +175,8 @@ def train(cfg):
         idx = idx[pool_loss[idx].argsort(descending=True)]
         x, g, R = pool_x[idx].clone(), pool_g[idx].clone(), pool_R[idx].clone()
         x[:1], g[:1], R[:1] = seed_state(model, 1, size, dev)  # en kötü örnek: yeni tohum
+        if phys.torus:  # bedenler ortada: kenardan geçmez, hasar ve kayıplar tek beden görür
+            x, R = center_torus(x, R)
         if it >= dcfg["start_iter"]:
             n = dcfg["n_damaged"]
             apply_damage(x[bs - n :], g[bs - n :], gen, dcfg, phys)

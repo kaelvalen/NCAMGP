@@ -328,3 +328,39 @@ def test_life_step_without_genome_matches_zero_genome():
     b = life_step(m, x, None, R, LifePhysics())
     assert b[1] is None
     assert torch.allclose(a[0], b[0]) and torch.allclose(a[2], b[2])
+
+
+# --- toroidal arena (ön eğitim) ---
+def test_torus_transport_wraps_edge():
+    m = torch.zeros(1, 1, H, W)
+    m[0, 0, 0, 0] = 1.0
+    flow = one_dir_flow(m.shape, 1 + DIRS.index((-1, -1)))
+    m2, _, _, _ = transport(m, flow, torch.zeros(1, 1, H, W), torch.zeros(1, 1, H, W), circular=True)
+    assert m2[0, 0, H - 1, W - 1] == 1.0 and m2.sum() == 1.0
+
+
+def test_torus_diffuse_conserves_and_wraps():
+    from nca.life import diffuse
+    R = torch.zeros(1, 1, H, W)
+    R[0, 0, 0, 0] = 1.0
+    R2 = diffuse(R, 0.25, circular=True)
+    assert torch.isclose(R2.sum(), torch.tensor(1.0)) and R2[0, 0, H - 1, 0] > 0 and R2[0, 0, 0, W - 1] > 0
+
+
+def test_torus_life_step_conserves_nutrient():
+    m = random_model()
+    x, g, R = blob_world(m)
+    x, R = torch.roll(x, (10, 12), (2, 3)), torch.roll(R, (10, 12), (2, 3))  # bloklar kenardan taşar
+    t0 = tot(x, R)
+    with torch.no_grad():
+        for _ in range(50):
+            x, g, R, _, _ = life_step(m, x, g, R, LifePhysics(torus=True))
+    assert torch.isclose(tot(x, R), t0, rtol=1e-4)
+
+
+def test_center_torus_rejoins_body_split_by_edge():
+    from nca.train_life import center_torus
+    x = blocks((8, 14, 0, 3), (8, 14, 21, 24))  # tek beden, sol-sağ kenardan bölünmüş
+    assert debris_loss(x, 20).item() > 0  # ortalanmadan iki küçük parça sanılır
+    xc, Rc = center_torus(x, torch.ones(1, 1, 24, 24))
+    assert debris_loss(xc, 20).item() == 0 and torch.isclose(xc[:, M_CH].sum(), x[:, M_CH].sum())

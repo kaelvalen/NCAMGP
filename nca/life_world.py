@@ -10,7 +10,7 @@ Her bölünme nedeniyle kaydedilir: "disturbance" (ebeveyn son cause_window adı
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import torch
@@ -32,6 +32,7 @@ class LifeParams(WorldParams):
 class LifeWorld(World):
     def __init__(self, model, phys, size=192, n_seeds=12, params=None, seed=0, genomes=None, groups=None):
         params = params or LifeParams()
+        phys = replace(phys, torus=False)  # dünya kenarlıdır (World.cut/move düz geometri); ön eğitim sarmaldı
         if genomes is None:  # ortak ata: tüm kurucular g = 0 (çeşitlilik yalnız yara mutasyonundan)
             genomes = torch.zeros(n_seeds, model.n_genome)
         dev = next(model.parameters()).device

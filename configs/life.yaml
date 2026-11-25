@@ -8,7 +8,8 @@ model:
   hidden_dim: 128
   perception: sobel_lap
   fire_rate: 0.5
-physics: {}              # LifePhysics varsayılanları (nca/life.py)
+physics:                 # LifePhysics (nca/life.py); gerisi varsayılan
+  torus: true            # sarmal arena: duvar yok (64'lük kutuda canlılar duvara yapışıp parçalanıyordu)
 pool_size: 1024
 batch_size: 8
 steps: [64, 96]
