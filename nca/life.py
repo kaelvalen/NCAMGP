@@ -213,9 +213,10 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
     stay1[:, 0] = 1
     flow = out["flow"] * fm + stay1 * (1 - fm)
     out = {**out, "flow": flow, "grow": out["grow"] * fm, "attack": out["attack"] * fm}
-    # kuralın yazdığı kanallar sınırlıdır: aşırı (mutant) genomlarda geri beslemeyle taşıp NaN üretmesin
-    rgb = (x[:, RGB] + out["drgb"] * fm).clamp(0, 1)
-    h = (x[:, H0:] + out["dh"] * fm).clamp(-H_MAX, H_MAX)
+    rgb = x[:, RGB] + out["drgb"] * fm
+    h = x[:, H0:] + out["dh"] * fm
+    if not torch.is_grad_enabled():  # güvenlik rayı (dünya, değerlendirme): mutant genomlarda geri beslemeyle taşıp
+        rgb, h = rgb.clamp(0, 1), h.clamp(-H_MAX, H_MAX)  # NaN üretmesin; eğitimde kırpma gradyanı öldürür, orada sınır kaybı var
     # büyüme ve hareket maliyeti kaynak hücrede, eldeki enerjiyle sınırlı (E negatife düşmez)
     Ep = E.clamp(min=0)
     dm = phys.r_g * out["grow"] * Ep
