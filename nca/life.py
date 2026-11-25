@@ -21,6 +21,7 @@ RGB = slice(0, 3)
 M_CH = 3
 E_CH = 5
 H0 = 6  # ilk gizli kanal
+H_MAX = 5.0  # gizli kanal sınırı (ön eğitimin sınır kaybı |h| <= 3 tutar)
 
 # akış yönleri: indeks 0 = kal, 1..8 = DIRS sırası (dy, dx)
 DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -187,8 +188,9 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
     stay1[:, 0] = 1
     flow = out["flow"] * fm + stay1 * (1 - fm)
     out = {**out, "flow": flow, "grow": out["grow"] * fm, "attack": out["attack"] * fm}
-    rgb = x[:, RGB] + out["drgb"] * fm
-    h = x[:, H0:] + out["dh"] * fm
+    # kuralın yazdığı kanallar sınırlıdır: aşırı (mutant) genomlarda geri beslemeyle taşıp NaN üretmesin
+    rgb = (x[:, RGB] + out["drgb"] * fm).clamp(0, 1)
+    h = (x[:, H0:] + out["dh"] * fm).clamp(-H_MAX, H_MAX)
     # büyüme ve hareket maliyeti kaynak hücrede, eldeki enerjiyle sınırlı (E negatife düşmez)
     Ep = E.clamp(min=0)
     dm = phys.r_g * out["grow"] * Ep
