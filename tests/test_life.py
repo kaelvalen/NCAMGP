@@ -245,3 +245,44 @@ def test_victim_potential_rises():
     x2, _, _ = eat(x, R, tag, a, LifePhysics())
     V = x2[0, V_CH]
     assert V[6, 6] > 0 and V[6, 8] == 0 and V[A].sum() == 0
+
+
+# --- ön eğitim kayıpları ---
+from nca.train_life import body_descriptors, debris_loss  # noqa: E402
+
+
+def blocks(*rects, size=24):
+    m = LifeCA()
+    x = torch.zeros(1, m.channels, size, size)
+    for y0, y1, x0, x1 in rects:
+        x[0, M_CH, y0:y1, x0:x1] = 1.0
+        x[0, 0, y0:y1, x0:x1] = 0.7
+        x[0, E_CH, y0:y1, x0:x1] = 0.5
+    return x
+
+
+def test_debris_loss_allows_two_viable_bodies():
+    x = blocks((2, 7, 2, 7), (12, 17, 12, 17))
+    assert debris_loss(x, 10).item() == 0
+
+
+def test_debris_loss_penalizes_small_fragment():
+    x = blocks((2, 7, 2, 7), (12, 14, 12, 14))
+    assert debris_loss(x, 10).item() > 0
+
+
+def test_descriptors_translation_invariant():
+    x = blocks((3, 9, 4, 8), (9, 11, 4, 12))  # L biçimli beden
+    xs = torch.roll(x, shifts=(7, 5), dims=(2, 3))
+    assert torch.allclose(body_descriptors(x), body_descriptors(xs), atol=1e-5)
+
+
+def test_train_life_smoke(tmp_path):
+    from nca.train_life import train
+    from nca.utils import ROOT, load_config
+
+    cfg = load_config(ROOT / "configs" / "life.yaml", [
+        "iterations=3", "grid=32", "batch_size=2", "pool_size=8", "steps=[8,8]", "homeo_k=4",
+        f"out_dir={tmp_path}", "damage.start_iter=0", "snapshot_every=1", "model.hidden_dim=16"])
+    out = train(cfg)
+    assert (out / "model.pt").exists() and (out / "log.csv").exists()
