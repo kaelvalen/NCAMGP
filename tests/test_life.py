@@ -302,3 +302,15 @@ def test_life_step_reports_uptake():
     x, g, R = blob_world(m, n=1)
     _, _, _, _, out = life_step(m, x, g, R, LifePhysics())
     assert out["uptake"].sum() > 0 and out["uptake"].shape == R.shape
+
+
+def test_life_step_stays_finite_under_extreme_genome():
+    # mutasyonla aşırı genomlar oluşabilir: tek bir NaN algı yoluyla tüm dünyaya yayılır
+    m = random_model(2)
+    m.film_scale = 50.0
+    x, g, R = blob_world(m)
+    g = g * 3
+    with torch.no_grad():
+        for _ in range(60):
+            x, g, R, _, _ = life_step(m, x, g, R, LifePhysics())
+    assert torch.isfinite(x).all() and torch.isfinite(R).all() and torch.isfinite(g).all()
