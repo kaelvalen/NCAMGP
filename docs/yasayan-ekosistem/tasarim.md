@@ -214,6 +214,9 @@ bağlantı eklenir.
 
 ## Takvim ve karar noktası
 
+Uygulama planı (karar noktasına kadar): `docs/yasayan-ekosistem/plan-1-fizik.md`.
+Plan 2 (Y2–Y5, demo, makale) karar noktasından sonra yazılır.
+
 | Hafta | Bitiş | İş |
 |---|---|---|
 | 1 | 2 Aralık | Fizik (taşınım, yeme, enerji döngüsü), korunum testleri, ön eğitim, Y1 |
