@@ -314,3 +314,17 @@ def test_life_step_stays_finite_under_extreme_genome():
         for _ in range(60):
             x, g, R, _, _ = life_step(m, x, g, R, LifePhysics())
     assert torch.isfinite(x).all() and torch.isfinite(R).all() and torch.isfinite(g).all()
+
+
+def test_life_step_without_genome_matches_zero_genome():
+    # ön eğitimde g = 0 ve FiLM kapalı: genomu taşımamak sonucu değiştirmemeli
+    m = random_model(3)
+    m.film_scale = 0.0
+    x, _, R = blob_world(m)
+    g0 = torch.zeros(1, m.n_genome, *x.shape[-2:])
+    torch.manual_seed(5)
+    a = life_step(m, x, g0, R, LifePhysics())
+    torch.manual_seed(5)
+    b = life_step(m, x, None, R, LifePhysics())
+    assert b[1] is None
+    assert torch.allclose(a[0], b[0]) and torch.allclose(a[2], b[2])

@@ -214,8 +214,11 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
     cmove = torch.minimum(phys.c_move * moved, Ep - dm)
     m, E, R = m + dm, E - dm - cmove, R + cmove
     nh = h.shape[1]
-    m, E, inten, tag = transport(m, flow, E, torch.cat([rgb, h, g], 1), tag)
-    rgb, h, g = inten[:, :3], inten[:, 3 : 3 + nh], inten[:, 3 + nh :]
+    # g = None: genomsuz (ön eğitim, g = 0 ve FiLM kapalı); 32 sıfır kanalı taşımak belleği boşa harcar
+    inten = torch.cat([rgb, h] if g is None else [rgb, h, g], 1)
+    m, E, inten, tag = transport(m, flow, E, inten, tag)
+    rgb, h = inten[:, :3], inten[:, 3 : 3 + nh]
+    g = None if g is None else inten[:, 3 + nh :]
     u = torch.minimum(R, phys.k_up * R * m.clamp(0, 1))
     c = phys.c_m * m
     R, E = R - u + c, E + u - c
@@ -227,7 +230,8 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
     keep = 1 - df
     m, E, rgb, h = m * keep, E * keep, rgb * keep, h * keep
     with torch.no_grad():
-        g = g * keep
+        if g is not None:
+            g = g * keep
         if tag is not None:
             tag = tag * keep
     xn = torch.cat([rgb, m, x[:, V_CH : V_CH + 1], E, h], 1)
