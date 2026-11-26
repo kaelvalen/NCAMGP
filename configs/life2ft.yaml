@@ -1,0 +1,46 @@
+# Ata v2 ince ayarı: life2 (r0 kıtlığı, seyrek yeniden tohumlama) 2000. checkpointinden düşük lr ile
+# havuz yaşlandırma (uzun ufuk). life2 yüksek lr ile yaşlandırmada 2250de ıraksadı.
+name: life2ft
+seed: 0
+init_from: runs/life2_s0/snapshots/model_02000.pt  # life2 yaşlandırma öncesi son sağlıklı checkpoint
+reseed_mass_max: 1200    # 3 × A_max: aşırı büyümüş örnek havuzdan atılır
+grid: 64                 # dünyada birey başına ~3000 besin; 64² × r0 bunu kapsar (80 yalnız süreyi uzatıyordu)
+model:
+  n_hidden: 12
+  n_genome: 32
+  hidden_dim: 128
+  perception: sobel_lap
+  fire_rate: 0.5
+physics:                 # LifePhysics (nca/life.py); gerisi varsayılan
+  torus: true            # sarmal arena: duvar yok (64'lük kutuda canlılar duvara yapışıp parçalanıyordu)
+pool_size: 1024
+r0: [0.2, 1.0]           # örnek başına başlangıç besini (kıtlık)
+reseed_every: 4          # en kötü örnek 4 iterasyonda bir yenilenir (ölüler her zaman): yaşlı örnekler kalır
+aging:                   # havuz yaşlandırma (gradyansız), 11 ms/adım (64 örnek) -> ~0.12 s/iter ek yük (%25)
+  start: 0                # kural zaten kısa ufukta yaşıyor (init_from)
+  every: 20
+  chunk: 64
+  steps: 220
+  oldest_frac: 0.5       # en yaşlı ~32 örnek ~11 adım/iter: sonda ~66k adım
+batch_size: 8
+steps: [64, 96]
+homeo_k: 16
+lr: 2.0e-4                # ince ayar: uzun ufuk düşük lr ile (life2 yüksek lr ile 2250de ıraksadı)
+lr_drop_iter: 100000
+lr_drop: 0.1
+iterations: 6000
+checkpoint_segment: 16
+A_min: 40
+A_max: 400
+e_min: 0.2
+min_viable: 10
+weights: {}              # kayıp ağırlıkları (varsayılan 1): mass, debris, energy, homeo, bounds
+damage:
+  start_iter: 0          # 2000. checkpoint hasarla eğitildi
+  n_damaged: 2
+  circle_r: [0.1, 0.3]
+  keep_frac: [0.3, 0.8]
+log_every: 50
+print_every: 500
+snapshot_every: 1000
+out_dir: runs

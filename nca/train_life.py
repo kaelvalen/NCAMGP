@@ -206,7 +206,9 @@ def train(cfg):
         x, g, R = pool_x[idx].clone(), pool_g[idx].clone(), pool_R[idx].clone()
         # en kötü örnek yeni tohum, ama yalnız reseed_every iterasyonda bir: havuzda yaşlı örnekler kalsın
         # (her iterasyonda değiştirilince örnekler ~600-2000 adım yaşıyordu; ata sonrasını hiç görmedi)
-        dead = x[:, M_CH].flatten(1).sum(1) < 1
+        M = x[:, M_CH].flatten(1).sum(1)
+        # ölü ya da aşırı büyümüş (kütle kaybı karesel: tek örnek gradyanı ele geçirir, life2 2250'de ıraksadı)
+        dead = (M < 1) | (M > cfg.get("reseed_mass_max", float("inf")))
         dead[0] |= it % cfg.get("reseed_every", 1) == 0
         if dead.any():
             k = int(dead.sum())
