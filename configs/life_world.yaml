@@ -1,6 +1,6 @@
 # Yaşayan ekosistem koşusu (experiments/y_run.py). Fizik: nca/life_world.py.
 run: life_s0             # ön eğitilmiş ata (nca/train_life.py)
-film_scale: 1.0          # genomun kurala etkisi; experiments/calibrate_film.py ile ayarlanır
+film_scale: 1.0          # Task 8: survive_frac 0.22 (0.75: 0.81), desc_dist 3.8; 0.5e en yakın
 size: 192
 n_seeds: 12
 steps: 100000
