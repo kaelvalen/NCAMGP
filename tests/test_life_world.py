@@ -100,3 +100,60 @@ def test_background_nibbling_is_not_an_attack():
     w.t = 100
     w.note_attacks(lost, m_after)
     assert w.last_attacked.get(w.tag_key(6.0)) == 100 and w.tag_key(3.0) not in w.last_attacked
+
+
+# --- sarmal dünya ---
+def torus_world(size=32, **kw):
+    torch.manual_seed(0)
+    return LifeWorld(LifeCA(), LifePhysics(torus=True), size=size, n_seeds=0,
+                     params=LifeParams(min_viable=10, **kw), seed=0)
+
+
+def test_label_wrap_joins_across_edges_and_corner():
+    import numpy as np
+    from nca.life_world import label_wrap
+    m = np.zeros((16, 16), bool)
+    m[5:9, 0:2] = m[5:9, 14:16] = True  # sol-sağ kenardan geçen tek beden
+    m[0, 0] = m[15, 15] = True  # köşegen köşe
+    m[10:12, 6:8] = True  # ayrı beden
+    lab, n = label_wrap(m)
+    assert n == 3
+    assert lab[5, 0] == lab[5, 15] and lab[0, 0] == lab[15, 15] and lab[10, 6] not in (lab[5, 0], lab[0, 0])
+
+
+def test_torus_body_across_edge_is_one_organism_with_wrapped_centroid():
+    w = torus_world()
+    w.x[0, M_CH, 10:16, 0:4] = w.x[0, M_CH, 10:16, 28:32] = 1.0
+    w.x[0, E_CH, 10:16, 0:4] = w.x[0, E_CH, 10:16, 28:32] = 1.0
+    w.tag[0, 0, 10:16, 0:4] = w.tag[0, 0, 10:16, 28:32] = 3.0
+    w.retag_splits()
+    w.track()
+    live = [o for o in w.orgs.values() if o.alive]
+    assert len(live) == 1 and live[0].area == 48
+    cy, cx = live[0].centroid
+    assert abs(cy - 12.5) < 1e-6 and min(abs(cx - 31.5), abs(cx + 0.5)) < 1e-6  # kenarın üstünde, ortada değil
+
+
+def test_torus_cut_across_edge_conserves_and_splits():
+    w = torus_world()
+    w.x[0, M_CH, 8:20, 0:6] = w.x[0, M_CH, 8:20, 26:32] = 1.0
+    w.x[0, E_CH, 8:20, 0:6] = w.x[0, E_CH, 8:20, 26:32] = 1.0
+    w.tag[0, 0, 8:20, 0:6] = w.tag[0, 0, 8:20, 26:32] = 3.0
+    n0 = nutrient(w)
+    comp = (w.x[0, M_CH] > 0.1).cpu().numpy()
+    w.cut(comp, 0.0)  # dikey kesme (normal x yönünde), kenar üzerinden
+    assert abs(nutrient(w) - n0) / n0 < 1e-5
+    alive = w.x[0, M_CH] > 0.1
+    assert len(torch.unique(w.tag[0, 0][alive])) == 2
+
+
+def test_torus_world_step_conserves():
+    torch.manual_seed(0)
+    m = LifeCA()
+    torch.nn.init.normal_(m.w2.weight, std=0.1)
+    w = LifeWorld(m, LifePhysics(torus=True), size=48, n_seeds=4,
+                  params=LifeParams(cut_rate=0.0, mu=1.0, mu_base=0.1), seed=0)
+    n0 = nutrient(w)
+    for _ in range(100):
+        w.step()
+    assert abs(nutrient(w) - n0) / n0 < 1e-4
