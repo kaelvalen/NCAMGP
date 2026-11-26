@@ -405,3 +405,18 @@ def test_draw_r0_range_and_default():
     r = draw_r0({"r0": [0.2, 1.0]}, 1000, gen)
     assert r.min() >= 0.2 and r.max() <= 1.0 and r.std() > 0.1
     assert torch.equal(draw_r0({}, 3, gen), torch.ones(3))
+
+
+def test_age_pool_advances_only_chosen_samples_without_grad():
+    from nca.train_life import age_pool, seed_state
+    torch.manual_seed(0)
+    m = LifeCA(film_scale=0.0)  # ön eğitimdeki gibi: genom taşınmaz
+    torch.nn.init.normal_(m.w2.weight, std=0.1)
+    x, _, R = seed_state(m, 4, 16, "cpu")
+    x0, R0 = x.clone(), R.clone()
+    age = torch.zeros(4)
+    idx = torch.tensor([1, 3])
+    age_pool(m, x, R, age, idx, 5, LifePhysics(torus=True))
+    assert torch.equal(x[[0, 2]], x0[[0, 2]]) and torch.equal(R[[0, 2]], R0[[0, 2]])
+    assert not torch.equal(x[[1, 3]], x0[[1, 3]])
+    assert age.tolist() == [0, 5, 0, 5] and not x.requires_grad

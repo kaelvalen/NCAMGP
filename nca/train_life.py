@@ -131,6 +131,19 @@ def seed_state(model, b, size, dev, r0=None):
     return x, g, R
 
 
+@torch.no_grad()
+def age_pool(model, pool_x, pool_R, pool_age, idx, steps, phys):
+    """Havuzdaki idx örneklerini gradyansız `steps` adım ilerletir (yerinde). Eğitim açılımı örneklere
+    yalnız ~80 adım ekler; bu olmadan örnekler birkaç bin adımdan yaşlı olmaz, dünya ise 100k adım koşar."""
+    x, R = pool_x[idx], pool_R[idx]
+    for _ in range(steps):
+        x, _, R, _, _ = life_step(model, x, None, R, phys)
+    if phys.torus:
+        x, R = center_torus(x, R)
+    pool_x[idx], pool_R[idx] = x, R
+    pool_age[idx] += steps
+
+
 def draw_r0(cfg, n, gen):
     """Örnek başına başlangıç besini: cfg['r0'] = [alt, üst] aralığında düzgün; yoksa 1 (kıtlığa dayanıklılık)."""
     if "r0" not in cfg:
@@ -176,6 +189,8 @@ def train(cfg):
     P = cfg["pool_size"]
     pool_x, pool_g, pool_R = seed_state(model, P, size, dev, draw_r0(cfg, P, gen))
     pool_loss = torch.full((P,), float("inf"), device=dev)
+    pool_age = torch.zeros(P, device=dev)  # örnek yaşı (adım): uzun ufuk kapsamasını izlemek için
+    acfg = cfg.get("aging")  # {every, chunk, steps, oldest_frac}: her `every` iterasyonda `chunk` örnek `steps` adım yaşlanır
     smin, smax = cfg["steps"]
     hk, dcfg = cfg["homeo_k"], cfg["damage"]
 
@@ -196,6 +211,7 @@ def train(cfg):
         if dead.any():
             k = int(dead.sum())
             x[dead], g[dead], R[dead] = seed_state(model, k, size, dev, draw_r0(cfg, k, gen))
+            pool_age[idx[dead.to(idx.device)]] = 0
         if phys.torus:  # bedenler ortada: kenardan geçmez, hasar ve kayıplar tek beden görür
             x, R = center_torus(x, R)
         if it >= dcfg["start_iter"]:
@@ -216,6 +232,12 @@ def train(cfg):
         sched.step()
         pool_x[idx], pool_R[idx] = x.detach(), R.detach()
         pool_loss[idx] = L["total"].detach()
+        pool_age[idx] += steps
+        if acfg and it % acfg["every"] == 0 and it > 0:
+            k = acfg["chunk"]
+            ko = int(k * acfg.get("oldest_frac", 0.0))  # en yaşlılar sürekli yaşlanır: yaş ~dünya ufkuna (100k) ulaşır
+            idx_a = torch.cat([pool_age.topk(ko).indices, torch.randperm(P, generator=gen)[: k - ko].to(dev)]).unique()
+            age_pool(model, pool_x, pool_R, pool_age, idx_a, acfg["steps"], phys)
         mean_mass = x[:, M_CH].flatten(1).sum(1).mean().item()
         if it % cfg.get("log_every", 50) == 0 or it == cfg["iterations"] - 1:
             log.writerow([it, f"{loss.item():.6f}", *[f"{L[k].mean().item():.6f}" for k in names],
@@ -223,7 +245,8 @@ def train(cfg):
             log_f.flush()
         if it % cfg.get("print_every", 500) == 0:
             parts = " ".join(f"{k}={L[k].mean().item():.4f}" for k in names)
-            print(f"[{out.name}] it={it} loss={loss.item():.4f} {parts} kütle={mean_mass:.0f} t={time.time() - t0:.0f}s", flush=True)
+            print(f"[{out.name}] it={it} loss={loss.item():.4f} {parts} kütle={mean_mass:.0f} "
+                  f"yaş ort/medyan/maks={pool_age.mean():.0f}/{pool_age.median():.0f}/{pool_age.max():.0f} t={time.time() - t0:.0f}s", flush=True)
         if it % cfg.get("snapshot_every", 1000) == 0 or it == cfg["iterations"] - 1:
             with torch.no_grad():
                 xe, ge, Re = seed_state(model, 8, size, dev)

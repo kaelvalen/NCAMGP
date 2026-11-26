@@ -2,7 +2,7 @@
 # R0 <= 0.35 ile tek hücreden büyüyemedi). nca/train_life.py. Hedef görüntü yok.
 name: life2
 seed: 0
-grid: 80                 # 64 -> 80: besin tavanı daha uzakta, boyut denetimi öğrenilmeli
+grid: 64                 # dünyada birey başına ~3000 besin; 64² × r0 bunu kapsar (80 yalnız süreyi uzatıyordu)
 model:
   n_hidden: 12
   n_genome: 32
@@ -14,6 +14,11 @@ physics:                 # LifePhysics (nca/life.py); gerisi varsayılan
 pool_size: 1024
 r0: [0.2, 1.0]           # örnek başına başlangıç besini (kıtlık)
 reseed_every: 4          # en kötü örnek 4 iterasyonda bir yenilenir (ölüler her zaman): yaşlı örnekler kalır
+aging:                   # havuz yaşlandırma (gradyansız), 11 ms/adım (64 örnek) -> ~0.12 s/iter ek yük (%25)
+  every: 20
+  chunk: 64
+  steps: 220
+  oldest_frac: 0.5       # en yaşlı ~32 örnek ~11 adım/iter yaşlanır: 3000. iter ~33k, sonda ~110k adım
 batch_size: 8
 steps: [64, 96]
 homeo_k: 16
