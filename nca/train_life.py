@@ -190,7 +190,7 @@ def train(cfg):
     pool_x, pool_g, pool_R = seed_state(model, P, size, dev, draw_r0(cfg, P, gen))
     pool_loss = torch.full((P,), float("inf"), device=dev)
     pool_age = torch.zeros(P, device=dev)  # örnek yaşı (adım): uzun ufuk kapsamasını izlemek için
-    acfg = cfg.get("aging")  # {every, chunk, steps, oldest_frac}: her `every` iterasyonda `chunk` örnek `steps` adım yaşlanır
+    acfg = cfg.get("aging")  # {start, every, chunk, steps, oldest_frac}: her `every` iterasyonda `chunk` örnek `steps` adım yaşlanır
     smin, smax = cfg["steps"]
     hk, dcfg = cfg["homeo_k"], cfg["damage"]
 
@@ -233,7 +233,8 @@ def train(cfg):
         pool_x[idx], pool_R[idx] = x.detach(), R.detach()
         pool_loss[idx] = L["total"].detach()
         pool_age[idx] += steps
-        if acfg and it % acfg["every"] == 0 and it > 0:
+        # olgunlaşmamış kuralla yaşlandırma havuzu aşırı büyümüş bedenlerle doldurur (deneme: 300-400'de kütle kaybı 61)
+        if acfg and it % acfg["every"] == 0 and it >= acfg.get("start", 1):
             k = acfg["chunk"]
             ko = int(k * acfg.get("oldest_frac", 0.0))  # en yaşlılar sürekli yaşlanır: yaş ~dünya ufkuna (100k) ulaşır
             idx_a = torch.cat([pool_age.topk(ko).indices, torch.randperm(P, generator=gen)[: k - ko].to(dev)]).unique()
