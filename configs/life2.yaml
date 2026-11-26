@@ -15,10 +15,11 @@ pool_size: 1024
 r0: [0.2, 1.0]           # örnek başına başlangıç besini (kıtlık)
 reseed_every: 4          # en kötü örnek 4 iterasyonda bir yenilenir (ölüler her zaman): yaşlı örnekler kalır
 aging:                   # havuz yaşlandırma (gradyansız), 11 ms/adım (64 örnek) -> ~0.12 s/iter ek yük (%25)
+  start: 1500             # kural önce kısa ufukta yaşamayı öğrenir (ilk ata ~1000'de yaşayabilirdi)
   every: 20
   chunk: 64
   steps: 220
-  oldest_frac: 0.5       # en yaşlı ~32 örnek ~11 adım/iter yaşlanır: 3000. iter ~33k, sonda ~110k adım
+  oldest_frac: 0.5       # en yaşlı ~32 örnek ~11 adım/iter yaşlanır: 3000. iter ~16k, sonda ~93k adım
 batch_size: 8
 steps: [64, 96]
 homeo_k: 16
