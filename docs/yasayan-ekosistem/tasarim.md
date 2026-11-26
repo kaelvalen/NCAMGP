@@ -249,3 +249,34 @@ betimleyicilerin kesin tanımları, gölgelendirici geçişlerinin düzeni.
 
 - Yaklaşım C (melez).
 - Dış kesmeler kademeli söndürülür (4.8, Y4).
+
+## Karar noktası (9 Aralık) — ön rapor, 26 Kasım
+
+Ayrıntılar: `analysis/summary_life.md`, `analysis/figures/life_timeseries.png`, `runs/lifeworld_*`.
+
+**Çalışan kısım.**
+- Ata (`runs/life_s0`, checkpoint 9000) Y1'i geçiyor: 2000 adımda canlılık 1,00, kesmeden sonra
+  yeniden büyüme 1,00. Checkpoint Y1'e bakılarak seçildi, bu yüzden Y1 bağımsız test sayılmaz.
+- Elle yazılmamış hareket var: ata, kuyruklu bir damla olarak sürekli yer değiştiriyor.
+- Dört koşunun hiçbiri tükenmedi. Kapalı besin döngüsü 100k adım korundu.
+- Evrim koşusu mu1 s0'da ~10k–45k arasında renkleri ayrışmış serbest bir popülasyon oluştu,
+  kendiliğinden bölünme arttı (~20/1000 adım). ~33k'da avcılık payı 0,23'e sıçradı; mu0'da bu değer
+  0,01 düzeyinde kaldı.
+- Ön eğitimin 8000. checkpoint'i boş arenada kendiliğinden çoğalıyor (~5 beden). Bölünmenin ağın
+  ulaşabileceği bir davranış olduğunu gösteriyor.
+
+**Çalışmayan kısım.**
+1. *Geometri uyumsuzluğu.* Ata sarmal arenada eğitildi, dünya kenarlı. Hareket mutlak bir yöne
+   sabit, bu yüzden bireyler köşeye birikiyor. Geç dönemde canlı maddenin %86–100'ü duvar şeridinde,
+   geç pencere metrikleri büyük ölçüde artefakt.
+2. *Mutasyon kaynağı zayıf.* μ = 1 kurucuları öldürdü, μ 0,1'e indirildi. Genom çeşitliliği
+   (|g| ≈ 0,2) ilk büyümede oluşup sonra sabit kalıyor: dengede V ≈ 0,05. Kesmeler sönünce yeni
+   varyasyon pek oluşmuyor.
+3. *Tek tohum.* mu1 ile mu0 arasındaki fark tek bir tohumdan geliyor (n = 2).
+
+**Ön karar: koşullu devam.** Fizik ve öğrenilmiş ata çalışıyor; olumsuz sonuç ilan etmek için
+erken. Asıl engel geometri ve doğrudan düzeltilebilir. Plan 2'nin ilk işleri:
+(a) sarmal dünya: kenardan sarmalanan segmentasyon, kesme ve ekim; (b) koşuları yeniden
+yapmak ve tohum sayısını 4'e çıkarmak; (c) gerekirse mutasyonu yara potansiyelinden bağımsız küçük
+bir taban terimle beslemek. (c) elle yazılmış davranış değildir, ancak tasarım değişikliği olduğu
+için kullanıcı onayı gerekir.
