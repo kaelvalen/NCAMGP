@@ -285,3 +285,12 @@ için kullanıcı onayı gerekir.
 (`label_wrap`, dairesel merkez, sarmal kesme ve taşıma, yeme ve V yayılımı sarmal);
 `LifeParams.mu_base = 0,03` (`evo.mutate` `base`: g += μ(V + base)ξ). 5000 adımlık sınama:
 base 0 -> 49 birey, base 0,03 -> 51 birey ve |g| 0,30 -> 0,35, base 0,1 -> t = 1360 tükenme.
+
+### Sarmal dünya sonuçları (27 Kasım)
+
+Ayrıntılar `analysis/summary_life_torus.md` ve `analysis/figures/life_timeseries_torus.png`. Duvar
+sorunu çözüldü. Mutasyonun erken etkisi (daha çok bölünme, hız ve avcılık) üç tohumda tutarlı. Ancak
+kesmeler söndükten sonra dünya doyuyor: ata ~2000 adımdan sonra büyüyüp bölünmeyi sürdürüyor ve
+besin bitene kadar arenayı bir halı gibi kaplıyor. Ata, besin kıtlığında (R0 ≤ 0,35) tek hücreden
+büyüyemiyor. Önerilen sonraki adım ata ön eğitimini kıtlığa ve uzun ufka dayanıklı hale getirmek:
+örnek başına rastgele başlangıç besini, daha büyük arena ve uzun ufuklu bir Y1. Kullanıcı kararı bekleniyor.

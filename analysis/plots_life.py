@@ -1,7 +1,7 @@
 """Yaşayan ekosistem: koşul başına zaman serileri ve karar noktası özeti.
 
 Girdi: runs/lifeworld_<koşul>_s<tohum>/history.csv, summary.yaml (experiments/y_run.py)
-Çıktı: analysis/figures/life_timeseries.png|pdf, analysis/summary_life.md
+Çıktı: analysis/figures/life_timeseries[_<ad>].png|pdf, analysis/summary_life[_<ad>].md
 
 Kullanım: (cd analysis && uv run python plots_life.py [--name lifeworld])
 """
@@ -38,7 +38,7 @@ def load(name):
     return runs
 
 
-def fig_timeseries(runs, anneal):
+def fig_timeseries(runs, anneal, suffix=""):
     fig, axes = plt.subplots(len(PANELS), 1, figsize=(7, 2.0 * len(PANELS)), sharex=True)
     for ax, (col, label) in zip(axes, PANELS):
         for cond, color in COND.items():
@@ -55,7 +55,7 @@ def fig_timeseries(runs, anneal):
     axes[0].legend(frameon=False, fontsize=8)
     axes[0].text(anneal, axes[0].get_ylim()[1], " dış kesmeler sıfır", color=INK2, fontsize=8, va="top")
     axes[-1].set_xlabel("adım")
-    save(fig, "life_timeseries")
+    save(fig, "life_timeseries" + suffix)
 
 
 def window(h, lo, hi):
@@ -64,7 +64,7 @@ def window(h, lo, hi):
             "self_per_1k": w["fission_self"].mean()}
 
 
-def summary(runs, anneal):
+def summary(runs, anneal, suffix=""):
     lines = ["# Yaşayan ekosistem — karar noktası özeti\n",
              f"Erken pencere: ilk 5000 adım (ataya yakın). Geç pencere: kesmeler söndükten (t > {anneal}) sonraki",
              "son %20. Kendiliğinden bölünme 1000 adım başına; avcılık payı = yemeyle alınan / (yeme + kaynak alımı).\n",
@@ -77,7 +77,7 @@ def summary(runs, anneal):
         g = window(h, lo, t_end) if t_end > anneal else {k: float("nan") for k in e}
         lines.append(f"| {r['cond']} | {r['seed']} | {t_end} | {'evet' if r['s']['extinct'] else 'hayır'} | "
                      + " | ".join(f"{e[k]:.3g} → {g[k]:.3g}" for k in e) + " |")
-    out = ROOT / "analysis" / "summary_life.md"
+    out = ROOT / "analysis" / f"summary_life{suffix}.md"
     out.write_text("\n".join(lines) + "\n")
     print(f"özet: {out}")
 
@@ -90,8 +90,9 @@ def main():
     if not runs:
         raise SystemExit(f"koşu yok: runs/{args.name}_mu*_s*")
     anneal = runs[0]["s"]["params"]["anneal_steps"]
-    fig_timeseries(runs, anneal)
-    summary(runs, anneal)
+    suffix = "" if args.name == "lifeworld" else f"_{args.name}"  # her deney kendi çıktısına
+    fig_timeseries(runs, anneal, suffix)
+    summary(runs, anneal, suffix)
 
 
 if __name__ == "__main__":
