@@ -1,12 +1,12 @@
 # Yaşayan ekosistem koşusu (experiments/y_run.py). Fizik: nca/life_world.py.
-run: life_s0             # ön eğitilmiş ata (nca/train_life.py)
-film_scale: 1.0          # Task 8: survive_frac 0.22 (0.75: 0.81), desc_dist 3.8; 0.5e en yakın
+run: life2ft_s0          # ata v2 (checkpoint 3000, runs/life2ft_s0/SELECTED.txt); ilk ata life_s0 halı oluşturuyordu
+film_scale: 0.5          # life2ft: survive 0.375 (1.0: 0.125, 1.5: 0.41 ama kütle ~1180); life_s0 için 1.0 idi
 size: 192
 n_seeds: 12
 steps: 100000
 snapshot_every: 5000
 world:                   # LifeParams (nca/life_world.py, nca/world.py)
-  mu: 0.1                # yara mutasyonu gücü; mu0 koşulunda 0. Tarama (3000 adım): 0.1 -> 9-10 birey, |g|~0.2; 0.2 -> 6; 0.4 -> 3; 1.0 -> t=150 tükenme
+  mu: 0.05               # life2ft tarama (6000 adım): 0.05 -> |g|~0.5, ~215 birey; 0.1 -> |g|~0.8 (rastgele genom ölçeği). life_s0 için 0.1 idi
   mu_base: 0.03          # taban mutasyon (c, kullanıcı onayı 26 Kas): mu·base·√1e5 ≈ 1 genom birimi; 0.1 -> t=1360 tükenme
   cut_rate: 0.002        # dış kesme başlangıç oranı (alan 300 olan birey için adım başına)
   anneal_steps: 50000    # kesmeler bu adımda sıfıra iner

@@ -1,0 +1,1 @@
+model.pt = snapshots/model_03000.pt. Dünya sınaması (192², 12 tohum, kesmesiz, 30k adım, r0 1): 1000 %78 (kaldı), 2000 %3 (11 birey), 3000 %36 (321 birey), 4000 %38, 5000 %8, 6000 %1 (6 birey, bölünme yok). Bölünmeyle besin sınırına çoğalan ve kapsaması en düşük olan seçildi.
