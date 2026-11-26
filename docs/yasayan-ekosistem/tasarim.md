@@ -294,3 +294,21 @@ kesmeler söndükten sonra dünya doyuyor: ata ~2000 adımdan sonra büyüyüp b
 besin bitene kadar arenayı bir halı gibi kaplıyor. Ata, besin kıtlığında (R0 ≤ 0,35) tek hücreden
 büyüyemiyor. Önerilen sonraki adım ata ön eğitimini kıtlığa ve uzun ufka dayanıklı hale getirmek:
 örnek başına rastgele başlangıç besini, daha büyük arena ve uzun ufuklu bir Y1. Kullanıcı kararı bekleniyor.
+
+**Kullanıcı kararı (27 Kasım):** Plan A, yani kıtlığa ve uzun ufka dayanıklı ata (v2). Seçilen ata
+`runs/life2ft_s0` checkpoint 3000. Dünya ayarları: film_scale 0,5 ve μ 0,05.
+
+### Ata v2 evrim sonuçları (27 Kasım)
+
+Ayrıntılar `analysis/summary_life_life2.md` ve `analysis/figures/life_timeseries_life2.png`.
+Sekiz koşunun (2 koşul × 4 tohum, 100k adım) hiçbiri tükenmedi. Halı sorunu mutasyonsuz koşulda
+çözüldü: ~300 birey, kapsama %31. Mutasyon dört tohumda aynı yöne seçilim üretiyor
+(tohum çiftleri arası genom kosinüsü 0,73, p < 5e-5). Seçilen yön K-stratejisi: büyük (~180 hücre),
+yavaş, seyrek bölünen ve uzun yaşayan bedenler. Bu bedenler besini daha düşük düzeye indiriyor
+(R* 0,08, mutasyonsuzda 0,18) ve dünyanın %74'ünü kaplayan bir bölge mozaiği kuruyor.
+
+Makale için bu temiz ve tekrarlanmış bir sonuç: evrim kendiliğinden ortaya çıkıyor, paralel
+evrim gözleniyor ve R* ilkesi geçerli. Ancak "yaşayan ekosistem" hedefi açısından geç dönem
+durağan (hız 0,007). Açık sorular: seçilim birey düzeyinde mi hücre düzeyinde mi işliyor
+(mutasyon somatik), ve bozulma rejimi (kesmeler) söndürülmeseydi dinamik bir denge kalır mıydı?
+Kullanıcı kararı bekleniyor.
