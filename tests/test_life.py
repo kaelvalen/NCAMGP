@@ -364,3 +364,27 @@ def test_center_torus_rejoins_body_split_by_edge():
     assert debris_loss(x, 20).item() > 0  # ortalanmadan iki küçük parça sanılır
     xc, Rc = center_torus(x, torch.ones(1, 1, 24, 24))
     assert debris_loss(xc, 20).item() == 0 and torch.isclose(xc[:, M_CH].sum(), x[:, M_CH].sum())
+
+
+def test_eat_wraps_on_torus():
+    H = W = 8
+    x = torch.zeros(1, 18, H, W)
+    x[0, M_CH, 3, 0] = x[0, M_CH, 3, W - 1] = 1.0  # kenarın iki yanında iki ayrı birey
+    x[0, E_CH, 3, 0] = x[0, E_CH, 3, W - 1] = 1.0
+    tag = torch.zeros(1, 1, H, W)
+    tag[0, 0, 3, 0], tag[0, 0, 3, W - 1] = 1.0, 2.0
+    a = torch.zeros(1, 1, H, W)
+    a[0, 0, 3, 0] = 1.0
+    R = torch.zeros(1, 1, H, W)
+    _, _, lost_flat, _ = eat(x, R, tag, a, LifePhysics())
+    _, _, lost_torus, _ = eat(x, R, tag, a, LifePhysics(torus=True))
+    assert float(lost_flat.sum()) == 0 and float(lost_torus[0, 0, 3, W - 1]) > 0
+
+
+def test_mutate_base_term_mutates_without_wound():
+    from nca.evo import mutate
+    x = torch.zeros(1, 18, 8, 8)
+    x[0, M_CH] = 1.0  # canlı, V = 0
+    g = torch.zeros(1, 4, 8, 8)
+    assert torch.equal(mutate(g, x, 0.1), g)
+    assert (mutate(g, x, 0.1, base=0.5) != 0).all()

@@ -297,11 +297,9 @@ class World:
         """comp (H, W) bool organizma maskesi; centroid'den geçen doğru boyunca keser, bandı siler,
         iki parçayı normal yönünde organizma boyunun yarısı kadar uzaklaştırır. Gidecek yer doluysa
         o hücreler ezilir (kaybolur)."""
-        s = self.size
-        yy, xx = np.mgrid[0:s, 0:s]
-        cy, cx = np.argwhere(comp).mean(0)
+        ry, rx = self.rel_coords(comp)
         ny, nx = math.sin(angle), math.cos(angle)
-        proj = (xx - cx) * nx + (yy - cy) * ny
+        proj = rx * nx + ry * ny
         cut_band = comp & (np.abs(proj) < band)
         side_a, side_b = comp & (proj >= band), comp & (proj <= -band)
         length = proj[comp].max() - proj[comp].min()
@@ -318,12 +316,23 @@ class World:
         for side, sign in ((side_a, 1), (side_b, -1)):
             self.move(side, round(sign * ny * d), round(sign * nx * d))
 
+    def rel_coords(self, comp):
+        """Her hücrenin comp merkezine göre (dy, dx) konumu, (H, W) dizileri."""
+        s = self.size
+        yy, xx = np.mgrid[0:s, 0:s]
+        cy, cx = np.argwhere(comp).mean(0)
+        return yy - cy, xx - cx
+
+    def wrap_dst(self, dst):
+        """Taşınan hücrelerin hedefi (kenarlı dünyada olduğu gibi; dışarı düşenler ezilir)."""
+        return dst
+
     def move(self, mask, dy, dx):
         s = self.size
         src = np.argwhere(mask)
         if not len(src):
             return
-        dst = src + [dy, dx]
+        dst = self.wrap_dst(src + [dy, dx])
         ok = (dst[:, 0] >= 0) & (dst[:, 0] < s) & (dst[:, 1] >= 0) & (dst[:, 1] < s)
         sy, sx = torch.from_numpy(src[:, 0]).to(self.dev), torch.from_numpy(src[:, 1]).to(self.dev)
         fields = (self.x, self.g, self.E, self.tag)

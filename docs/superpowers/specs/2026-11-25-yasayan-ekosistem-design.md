@@ -280,3 +280,8 @@ erken. Asıl engel geometri ve doğrudan düzeltilebilir. Plan 2'nin ilk işleri
 yapmak ve tohum sayısını 4'e çıkarmak; (c) gerekirse mutasyonu yara potansiyelinden bağımsız küçük
 bir taban terimle beslemek. (c) elle yazılmış davranış değildir, ancak tasarım değişikliği olduğu
 için kullanıcı onayı gerekir.
+
+**Kullanıcı kararı (26 Kasım):** (a), (b) ve (c) onaylandı. Uygulama: dünya `phys.torus` ile sarmal
+(`label_wrap`, dairesel merkez, sarmal kesme ve taşıma, yeme ve V yayılımı sarmal);
+`LifeParams.mu_base = 0,03` (`evo.mutate` `base`: g += μ(V + base)ξ). 5000 adımlık sınama:
+base 0 -> 49 birey, base 0,03 -> 51 birey ve |g| 0,30 -> 0,35, base 0,1 -> t = 1360 tükenme.

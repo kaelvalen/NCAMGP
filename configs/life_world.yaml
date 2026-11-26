@@ -7,6 +7,7 @@ steps: 100000
 snapshot_every: 5000
 world:                   # LifeParams (nca/life_world.py, nca/world.py)
   mu: 0.1                # yara mutasyonu gücü; mu0 koşulunda 0. Tarama (3000 adım): 0.1 -> 9-10 birey, |g|~0.2; 0.2 -> 6; 0.4 -> 3; 1.0 -> t=150 tükenme
+  mu_base: 0.03          # taban mutasyon (c, kullanıcı onayı 26 Kas): mu·base·√1e5 ≈ 1 genom birimi; 0.1 -> t=1360 tükenme
   cut_rate: 0.002        # dış kesme başlangıç oranı (alan 300 olan birey için adım başına)
   anneal_steps: 50000    # kesmeler bu adımda sıfıra iner
   cause_window: 50

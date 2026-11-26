@@ -86,16 +86,18 @@ class LifeCA(nn.Module):
 
 
 # --- taşınım ---
-def shift(t, dy, dx):
-    """out[y, x] = t[y - dy, x - dx] (sıfır dolgulu): (dy, dx) yönünde bir hücre kaydırır."""
+def shift(t, dy, dx, circular=False):
+    """out[y, x] = t[y - dy, x - dx] (sıfır dolgulu ya da sarmal): (dy, dx) yönünde bir hücre kaydırır."""
+    if circular:
+        return torch.roll(t, (dy, dx), (-2, -1))
     H, W = t.shape[-2:]
     p = F_.pad(t, (1, 1, 1, 1))
     return p[..., 1 - dy : 1 - dy + H, 1 - dx : 1 - dx + W]
 
 
-def neighbor(t, dy, dx):
+def neighbor(t, dy, dx, circular=False):
     """out[y, x] = t[y + dy, x + dx]: kaynağın (dy, dx) yönündeki hedefin değeri."""
-    return shift(t, -dy, -dx)
+    return shift(t, -dy, -dx, circular)
 
 
 _NB = [(dy + 1) * 3 + (dx + 1) for dy, dx in DIRS]  # unfold'da (dy, dx) komşusunun indeksi
@@ -179,7 +181,7 @@ class LifePhysics:
     k_eat: float = 0.2
     eta: float = 0.6
     c_attack: float = 0.005
-    torus: bool = False  # sarmal arena (ön eğitim: duvar yok); dünya kenarlıdır
+    torus: bool = False  # sarmal arena: duvar yok (ön eğitim ve dünya)
 
 
 def diffuse(R, d, circular=False):
@@ -245,7 +247,7 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
         if tag is not None:
             tag = tag * keep
     xn = torch.cat([rgb, m, x[:, V_CH : V_CH + 1], E, h], 1)
-    with torch.no_grad():  # shortcut: V'nin yayılımı sarmal arenada kenarda sarmaz (yalnız algı), kenarda iz görülürse sarmallaştır
+    with torch.no_grad():
         V = update_potential(xn, was_alive, m > ALIVE_THRESHOLD, phys)
     xn = torch.cat([rgb, m, V, E, h], 1)
     R = diffuse(R, phys.r_diffuse, phys.torus)
@@ -254,21 +256,22 @@ def life_step(model, x, g, R, phys, tag=None, F=None, fire_rate=None):
 
 
 # --- yeme ---
-def _foreign_links(x, tag):
+def _foreign_links(x, tag, circular=False):
     """Her yön için (B, 1, H, W) maske: hücre canlı, o yöndeki komşu canlı ve başka bireyden."""
     m = x[:, M_CH : M_CH + 1]
     alive = (m > ALIVE_THRESHOLD).to(x.dtype)
     links = []
     for dy, dx in DIRS:
-        other = (neighbor(tag, dy, dx) - tag).abs() > 1e-4
-        links.append(alive * neighbor(alive, dy, dx) * other.to(x.dtype))
+        other = (neighbor(tag, dy, dx, circular) - tag).abs() > 1e-4
+        links.append(alive * neighbor(alive, dy, dx, circular) * other.to(x.dtype))
     return links
 
 
-def foreign_mass(x, tag):
+def foreign_mass(x, tag, circular=False):
     """3x3 komşulukta başka bireylere ait canlı hücrelerin kütle toplamı (kuralın F girdisi)."""
     m = x[:, M_CH : M_CH + 1]
-    return sum(link * neighbor(m, dy, dx) for link, (dy, dx) in zip(_foreign_links(x, tag), DIRS))
+    links = _foreign_links(x, tag, circular)
+    return sum(link * neighbor(m, dy, dx, circular) for link, (dy, dx) in zip(links, DIRS))
 
 
 @torch.no_grad()
@@ -280,12 +283,13 @@ def eat(x, R, tag, attack, phys):
     Döndürür (x, R, lost, gain); lost: hücre başına yenilen kütle, gain: saldırganın aldığı ganimet
     (η'dan önce; E'ye η·gain girer)."""
     m, E = x[:, M_CH : M_CH + 1], x[:, E_CH : E_CH + 1]
-    links = _foreign_links(x, tag)
-    A = sum(link * neighbor(attack, dy, dx) for link, (dy, dx) in zip(links, DIRS))
+    c = phys.torus
+    links = _foreign_links(x, tag, c)
+    A = sum(link * neighbor(attack, dy, dx, c) for link, (dy, dx) in zip(links, DIRS))
     frac = (phys.k_eat * A).clamp(max=1)
     lost, eloss = m * frac, E.clamp(min=0) * frac
     per_a = torch.where(A > 0, (lost + eloss) / A.clamp(min=1e-8), torch.zeros_like(A))
-    gain = attack * sum(link * neighbor(per_a, dy, dx) for link, (dy, dx) in zip(links, DIRS))
+    gain = attack * sum(link * neighbor(per_a, dy, dx, c) for link, (dy, dx) in zip(links, DIRS))
     E = E - eloss + phys.eta * gain
     R = R + (1 - phys.eta) * gain
     cost = torch.minimum(phys.c_attack * attack, E.clamp(min=0)) * (m > ALIVE_THRESHOLD)

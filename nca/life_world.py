@@ -3,14 +3,16 @@
 World'ün kimlik etiketlerini, segmentasyonunu, soy takibini ve kesmesini kullanır; adım fiziği
 nca/life.py'dendir: kural, taşınım (bireyler kaynaşmaz), yeme, kapalı besin döngüsü. Elle yazılmış
 davranış yoktur: hareket, saldırı ve bölünmeye kural karar verir. Dış kesmeler (hava olayı)
-anneal_steps boyunca doğrusal olarak sıfıra iner.
+anneal_steps boyunca doğrusal olarak sıfıra iner. phys.torus ise dünya sarmaldır: segmentasyon,
+merkez, kesme ve taşıma kenardan sarmalanır (ata sarmal arenada eğitildi; kenarlı dünyada sabit
+yönlü hareket bireyleri köşeye biriktiriyordu).
 
 Her bölünme nedeniyle kaydedilir: "disturbance" (ebeveyn son cause_window adımda kesildi),
 "attack" (ebeveyn bu pencerede yenildi) ya da "self".
 """
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -27,12 +29,37 @@ class LifeParams(WorldParams):
     anneal_steps: int = 50000  # kesme oranı bu adımda sıfıra iner
     cause_window: int = 50  # bölünme nedenini belirlerken geriye bakılan adım
     attack_frac_min: float = 0.05  # hücre kütlesinin bu oranından az kemirme saldırı sayılmaz
+    mu_base: float = 0.0  # yaradan bağımsız taban mutasyon (V'ye eklenir; evo.mutate base)
+
+
+def label_wrap(mask, torus=True):
+    """8-bağlantılı bileşen etiketleme; torus ise karşı kenarlar (ve köşeler) komşudur. (lab, n)."""
+    lab, n = ndimage.label(mask, structure=np.ones((3, 3)))
+    if not torus or n == 0:
+        return lab, n
+    parent = np.arange(n + 1)
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for d in (-1, 0, 1):  # satır 0 - satır -1 ve sütun 0 - sütun -1, köşegenler dahil
+        for a, b in ((lab[0], np.roll(lab[-1], d)), (lab[:, 0], np.roll(lab[:, -1], d))):
+            k = (a > 0) & (b > 0)
+            for u, v in set(zip(a[k].tolist(), b[k].tolist())):
+                ru, rv = find(u), find(v)
+                if ru != rv:
+                    parent[max(ru, rv)] = min(ru, rv)
+    roots = np.array([find(i) for i in range(n + 1)])
+    uniq, new = np.unique(roots, return_inverse=True)  # roots[0] = 0 -> 0
+    return new[lab].astype(np.int32), len(uniq) - 1
 
 
 class LifeWorld(World):
     def __init__(self, model, phys, size=192, n_seeds=12, params=None, seed=0, genomes=None, groups=None):
         params = params or LifeParams()
-        phys = replace(phys, torus=False)  # dünya kenarlıdır (World.cut/move düz geometri); ön eğitim sarmaldı
         if genomes is None:  # ortak ata: tüm kurucular g = 0 (çeşitlilik yalnız yara mutasyonundan)
             genomes = torch.zeros(n_seeds, model.n_genome)
         dev = next(model.parameters()).device
@@ -58,7 +85,7 @@ class LifeWorld(World):
     @torch.no_grad()
     def step(self):
         p = self.p
-        F = foreign_mass(self.x, self.tag)
+        F = foreign_mass(self.x, self.tag, self.phys.torus)
         self.x, self.g, self.R, self.tag, out = life_step(self.model, self.x, self.g, self.R, self.phys, tag=self.tag, F=F)
         self.x, self.R, lost, gain = eat(self.x, self.R, self.tag, out["attack"], self.phys)
         self.eaten_acc += self.phys.eta * gain
@@ -67,7 +94,7 @@ class LifeWorld(World):
         alive = self.x[:, M_CH : M_CH + 1] > ALIVE_THRESHOLD
         if self.kappa > 0:
             self.g = self.homogenize(self.g, self.tag, alive)
-        self.g = mutate(self.g, self.x, p.mu).clamp(-p.g_clip, p.g_clip)
+        self.g = mutate(self.g, self.x, p.mu, base=p.mu_base).clamp(-p.g_clip, p.g_clip)
         self.t += 1
         if self.t % p.track_every == 0:
             self.retag_splits()
@@ -88,11 +115,48 @@ class LifeWorld(World):
         tags = np.round(self.tag[0, 0].cpu().numpy() * 1000).astype(np.int64) * alive
         out = []
         for tv in np.unique(tags[tags > 0]):
-            lab, k = ndimage.label(tags == tv, structure=np.ones((3, 3)))
+            lab, k = label_wrap(tags == tv, self.phys.torus)
             for i in range(1, k + 1):
                 m = lab == i
                 out.append((int(tv), m, int(m.sum())))
         return out
+
+    def segment(self, alive):
+        """World.segment; sarmal dünyada kenardan geçen beden tek bileşendir."""
+        tags = np.round(self.tag[0, 0].cpu().numpy() * 1000).astype(np.int64) * alive
+        lab = np.zeros(alive.shape, np.int32)
+        n = 0
+        for tv in np.unique(tags[tags > 0]):
+            l, k = label_wrap(tags == tv, self.phys.torus)
+            lab[l > 0] = l[l > 0] + n
+            n += k
+        return lab, n
+
+    # --- sarmal geometri (World.cut / move kancaları) ---
+    def torus_delta(self, d):
+        """Sarmal fark: [-size/2, size/2)."""
+        s = self.size
+        return (d + s / 2) % s - s / 2
+
+    def centroid(self, comp):
+        """Merkez; sarmal dünyada dairesel ortalama (kenardan geçen beden kenarda ortalanır)."""
+        pts = np.argwhere(comp)
+        if not self.phys.torus:
+            return tuple(pts.mean(0))
+        a = pts * (2 * math.pi / self.size)
+        c = np.arctan2(np.sin(a).mean(0), np.cos(a).mean(0)) * self.size / (2 * math.pi)
+        return tuple(c % self.size)
+
+    def rel_coords(self, comp):
+        if not self.phys.torus:
+            return super().rel_coords(comp)
+        s = self.size
+        yy, xx = np.mgrid[0:s, 0:s]
+        cy, cx = self.centroid(comp)
+        return self.torus_delta(yy - cy), self.torus_delta(xx - cx)
+
+    def wrap_dst(self, dst):
+        return dst % self.size if self.phys.torus else dst
 
     def retag_splits(self):
         """Aynı etiketin yaşayabilir birden çok bileşeni varsa en büyüğü dışındakiler yeni birey olur."""
@@ -182,7 +246,11 @@ class LifeWorld(World):
             cells = tags[self.labels == l]
             if cells.size:
                 self.org_tag[oid] = int(cells[0])
-        moves = [math.dist(o.centroid, self._prev_cent[o.id]) for o in live if o.id in self._prev_cent]
+        if self.phys.torus:  # World.track düz ortalama yazdı; dairesel merkezle düzelt
+            for l, oid in self.label_to_id.items():
+                self.orgs[oid].centroid = self.centroid(self.labels == l)
+        dist = (lambda a, b: math.hypot(*(self.torus_delta(np.subtract(a, b))))) if self.phys.torus else math.dist
+        moves = [dist(o.centroid, self._prev_cent[o.id]) for o in live if o.id in self._prev_cent]
         eaten, up = float(self.eaten_acc.sum()), float(self.uptake_acc.sum())
         self.eaten_acc.zero_()
         self.uptake_acc.zero_()
