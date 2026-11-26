@@ -388,3 +388,20 @@ def test_mutate_base_term_mutates_without_wound():
     g = torch.zeros(1, 4, 8, 8)
     assert torch.equal(mutate(g, x, 0.1), g)
     assert (mutate(g, x, 0.1, base=0.5) != 0).all()
+
+
+def test_seed_state_nutrient_level_per_sample():
+    from nca.train_life import seed_state
+    m = LifeCA()
+    _, _, R = seed_state(m, 3, 16, "cpu", r0=torch.tensor([0.2, 0.5, 1.0]))
+    assert torch.allclose(R.mean((1, 2, 3)), torch.tensor([0.2, 0.5, 1.0]))
+    _, _, R1 = seed_state(m, 2, 16, "cpu")
+    assert torch.equal(R1, torch.ones_like(R1))
+
+
+def test_draw_r0_range_and_default():
+    from nca.train_life import draw_r0
+    gen = torch.Generator().manual_seed(0)
+    r = draw_r0({"r0": [0.2, 1.0]}, 1000, gen)
+    assert r.min() >= 0.2 and r.max() <= 1.0 and r.std() > 0.1
+    assert torch.equal(draw_r0({}, 3, gen), torch.ones(3))

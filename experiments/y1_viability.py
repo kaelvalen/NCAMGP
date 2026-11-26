@@ -6,7 +6,8 @@
   mass              toplam kütle
   regrew_after_cut  kesmeden sonra kütle, kesme öncesinin en az %80'ine döndü mü
 
-Kullanım: uv run python experiments/y1_viability.py --run life_s0 [--n 64 --steps 2000]
+Kullanım: uv run python experiments/y1_viability.py --run life_s0 [--n 64 --steps 2000 --r0 1.0]
+(--r0: başlangıç besin düzeyi; kıtlık sınaması için < 1)
 """
 
 import argparse
@@ -42,13 +43,14 @@ def main():
     ap.add_argument("--n", type=int, default=64)
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--out", default="y1.csv")
+    ap.add_argument("--r0", type=float, default=1.0)
     args = ap.parse_args()
     run = ROOT / "runs" / args.run
     model, phys = load_life(run)
     cfg = load_config(run / "config.yaml")
     dev = next(model.parameters()).device
     torch.manual_seed(0)
-    x, g, R = seed_state(model, args.n, cfg["grid"], dev)
+    x, g, R = seed_state(model, args.n, cfg["grid"], dev, torch.full((args.n,), args.r0))
     cut_at = args.steps // 2
     before = None
     for s in range(args.steps):
@@ -78,7 +80,7 @@ def main():
     a = np.mean([r["alive_2000"] for r in rows])
     rg = np.mean([r["regrew_after_cut"] for r in rows])
     nb = np.mean([r["n_bodies"] for r in rows])
-    print(f"[{args.run}] alive_2000={a:.2f} regrew_after_cut={rg:.2f} n_bodies={nb:.2f} "
+    print(f"[{args.run} r0={args.r0} adım={args.steps}] alive_2000={a:.2f} regrew_after_cut={rg:.2f} n_bodies={nb:.2f} "
           f"mass={float(mass.mean()):.0f} -> {path}")
 
 

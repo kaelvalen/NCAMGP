@@ -122,10 +122,21 @@ def run_life(model, x, g, R, phys, steps, segment):
     return x, g, R
 
 
-def seed_state(model, b, size, dev):
-    """Ortada tek hücre (m = 1, E = 1, gizli = 1), g = 0, R = 1."""
+def seed_state(model, b, size, dev, r0=None):
+    """Ortada tek hücre (m = 1, E = 1, gizli = 1), g = 0, R = r0 (örnek başına düzey; varsayılan 1)."""
     x, g = make_seed(torch.zeros(b, model.n_genome, device=dev), size, model.channels)
-    return x, g, torch.ones(b, 1, size, size, device=dev)
+    R = torch.ones(b, 1, size, size, device=dev)
+    if r0 is not None:
+        R = R * r0.to(dev).view(-1, 1, 1, 1)
+    return x, g, R
+
+
+def draw_r0(cfg, n, gen):
+    """Örnek başına başlangıç besini: cfg['r0'] = [alt, üst] aralığında düzgün; yoksa 1 (kıtlığa dayanıklılık)."""
+    if "r0" not in cfg:
+        return torch.ones(n)
+    lo, hi = cfg["r0"]
+    return lo + (hi - lo) * torch.rand(n, generator=gen)
 
 
 def render(x):
@@ -163,7 +174,7 @@ def train(cfg):
                     "config": cfg}, path)
 
     P = cfg["pool_size"]
-    pool_x, pool_g, pool_R = seed_state(model, P, size, dev)
+    pool_x, pool_g, pool_R = seed_state(model, P, size, dev, draw_r0(cfg, P, gen))
     pool_loss = torch.full((P,), float("inf"), device=dev)
     smin, smax = cfg["steps"]
     hk, dcfg = cfg["homeo_k"], cfg["damage"]
@@ -178,7 +189,13 @@ def train(cfg):
         idx = torch.randint(P, (bs,), generator=gen).to(dev)
         idx = idx[pool_loss[idx].argsort(descending=True)]
         x, g, R = pool_x[idx].clone(), pool_g[idx].clone(), pool_R[idx].clone()
-        x[:1], g[:1], R[:1] = seed_state(model, 1, size, dev)  # en kötü örnek: yeni tohum
+        # en kötü örnek yeni tohum, ama yalnız reseed_every iterasyonda bir: havuzda yaşlı örnekler kalsın
+        # (her iterasyonda değiştirilince örnekler ~600-2000 adım yaşıyordu; ata sonrasını hiç görmedi)
+        dead = x[:, M_CH].flatten(1).sum(1) < 1
+        dead[0] |= it % cfg.get("reseed_every", 1) == 0
+        if dead.any():
+            k = int(dead.sum())
+            x[dead], g[dead], R[dead] = seed_state(model, k, size, dev, draw_r0(cfg, k, gen))
         if phys.torus:  # bedenler ortada: kenardan geçmez, hasar ve kayıplar tek beden görür
             x, R = center_torus(x, R)
         if it >= dcfg["start_iter"]:
