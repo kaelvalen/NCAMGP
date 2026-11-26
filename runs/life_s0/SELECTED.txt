@@ -1,0 +1,1 @@
+model.pt = snapshots/model_09000.pt (Y1 seçimi; son model 09999 regrew 0.56 ile ölçütü geçemedi)
