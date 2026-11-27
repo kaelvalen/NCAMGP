@@ -213,6 +213,28 @@ def table_simple(name, title):
     return [f"## {title}\n\n" + "\n".join(lines) + "\n"]
 
 
+def fig_examples(run="r1_s0"):
+    """Makale örnekleri: tek hücreden büyüme (t = 0..300) ve kesilen iki parçanın ikisinin de bireye dönüşmesi
+    (kesme eğitimi almamış R1). Kaynak: d1_reproduce.py ve d2_fragment_curve.py --mode split görüntüleri."""
+    grow = plt.imread(RES / "d1" / f"{run}_growth.png")
+    split = plt.imread(RES / "d2" / f"{run}_split.png")
+    w = grow.shape[1] / 11  # 11 kare: başlangıç + t = 10, 20, 30, 40, 60, 80, 100, 150, 200, 300
+    keep = [0, 1, 2, 4, 7, 10]
+    strip = np.concatenate([grow[:, int(k * w) : int((k + 1) * w)] for k in keep], 1)
+    h = split.shape[0] / 5  # satır = kesme oranı 0,1..0,5; satırda 3 (kesme, sonuç) çifti
+    row = split[int(2 * h) : int(3 * h)]  # oran 0,3
+    fig, axes = plt.subplots(2, 1, figsize=(7, 3.4), gridspec_kw={"height_ratios": [1, 1.5]})
+    axes[0].imshow(strip)
+    axes[0].set_title("büyüme: t = 0, 10, 20, 40, 100, 300", fontsize=9)
+    axes[1].imshow(row)
+    axes[1].set_title("bölünme: kesilen parçalar (sol) ve 400 adım sonra (sağ), üç örnek", fontsize=9)
+    for ax in axes:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    save(fig, "core_examples")
+    return []
+
+
 def main():
     parts = ["# Sonuç özeti\n\nBu dosya `analysis/plots.py` tarafından üretilir. Değerler tohumlar üzerinden ortalama ± std.\n"]
     parts += table_d1()
@@ -220,6 +242,7 @@ def main():
     parts += table_d3()
     parts += fig_d4()
     parts += fig_d5()
+    parts += fig_examples()
     parts += table_simple("ablation_d1", "Ablasyonlar – D1 metrikleri")
     parts += table_simple("ablation_d2", "Ablasyonlar – D2 yerinde eğri")
     parts += table_simple("d6", "D6 – Gürültüden başlatma")

@@ -1,146 +1,163 @@
-% IEEE konferans şablonu (dersin verdiği şablonla değiştirilebilir). Overleaf'te derlenir.
-% Sayılar: analysis/summary_life_life2l.md, analysis/summary_life_life2.md, docs/yasayan-ekosistem/tasarim.md
-% (çekirdek katman: analysis/summary.md; ilk yaklaşım: analysis/summary_evo.md).
+% IEEE konferans şablonu (dersin verdiği şablonla değiştirilebilir). Overleaf'te ya da yerelde latexmk ile derlenir.
+% Sayılar: analysis/summary.md (ana katman: D1-D6, ablasyonlar), analysis/summary_life_life2l.md ve
+% docs/yasayan-ekosistem/tasarim.md (genişletme), analysis/summary_evo.md (ilk ekosistem).
 \documentclass[conference]{IEEEtran}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[turkish,shorthands=:!]{babel}  % = etkin olmasın: \includegraphics[width=...] bozulur
 \usepackage{amsmath,amssymb,graphicx,booktabs,cite}
 \graphicspath{{../analysis/figures/}{../experiments/results/}}
-\newcommand{\fig}[2]{\IfFileExists{../analysis/figures/#1}{\includegraphics[width=#2]{#1}}{\fbox{#1: analysis/plots\_life.py}}}
+\newcommand{\fig}[2]{\IfFileExists{../analysis/figures/#1}{\includegraphics[width=#2]{#1}}{\fbox{#1: analysis/plots*.py}}}
 
 \begin{document}
-\title{Kendi Kendine Yaşayan Bir Ekosistem:\\ Genom Koşullu Nöral Hücresel Otomatlarda Hareket, Bölünme ve Seçilim}
-\author{\IEEEauthorblockN{Arda}}
+\title{Kendini Onaran ve Bölünerek Çoğalan Yapay Organizmalar:\\ Nöral Hücresel Otomatlarla Öğrenilmiş Morfogenez}
+\author{\IEEEauthorblockN{Mehmet Arda Hakbilen}\IEEEauthorblockA{Yazılım Mühendisliği, 23291164}}
 \maketitle
 
 \begin{abstract}
-Tüm hücrelerin paylaştığı tek bir öğrenilmiş yerel kural (NCA) ve hücre başına kalıtsal bir genomla, davranışları elle yazılmamış canlılardan oluşan bir ekosistem kuruyoruz. Kural yalnızca ``yaşamayı'' öğrenir: hedef görüntü, şekil ya da davranış kaybı yoktur. Kütle korunumlu taşınım, birbirine karışmayan bireyler, kapalı bir besin döngüsü ve komşuyu yeme fiziği hareketi, bölünmeyi ve avcılığı yalnızca \emph{mümkün} kılar; ne zaman yapılacağına kural karar verir. Genom kuralın gizli katmanını sabit rastgele bir FiLM izdüşümüyle değiştirir ve yaralarda mutasyona uğrar. 192$^2$'lik sarmal dünyada, başlangıçtaki dış kesmeler söndükten sonra 16 koşunun hiçbiri tükenmedi ve üreme tümüyle kendiliğinden bölünmeyle sürdü. Mutasyonlu koşularda dört bağımsız tohumun ortalama genomu aynı yöne evrildi (tohum çiftleri arası kosinüs 0,73, $p < 5\cdot10^{-5}$). Evrilen strateji K tipidir: daha büyük (152'ye karşı 36 hücre), daha yavaş, kişi başı 4,7 kat seyrek bölünen ve besini daha düşük düzeye indiren bedenler (R$^*$ 0,08'e karşı 0,18). Price ayrıştırması kaymanın \%60--68'ini bireyler arası seçilime, kalanını aynı yönde beden içi değişime bağlıyor. Ortak bahçe deneyinde evrimleşmiş genomlar, mutasyonsuz taze bir dünyada da aynı fenotipi üretirken aynı normdaki rastgele genomlar üretmiyor. Ekosistem tarayıcıda WebGL2 ile canlı çalışır.
+Planarya gibi canlılar ikiye bölündüğünde her parçadan tam bir organizma oluşur; bu davranış merkezi bir kontrol olmadan, hücreler arası yerel etkileşimlerle ortaya çıkar. Her hücrenin yalnız komşularına bakarak güncellendiği öğrenilebilir bir yerel kural (Nöral Hücresel Otomat, NCA) eğiterek bu davranışı inceliyoruz. Kural tek bir hücreden hedef planarya biçimini büyütür (IoU $\ge 0{,}99$, 1000 adımda bozulma yok) ve dairesel hasarı \%100 başarıyla, ortalama 7 adımda onarır. Kesme verisiyle eğitilen kural, organizmanın \%20'si kadar küçük parçalardan bile tam bireyi \%96 başarıyla yeniden oluşturur. Ana bulgumuz şudur: hiç kesme görmeden yalnız dairesel onarımla eğitilen kural, ikiye kesildiğinde iki parçadan da tam birey çıkarır (\%30--50 kesmelerde \%92--95). Yani bölünerek çoğalma onarım eğitiminden kendiliğinden ortaya çıkar. Ablasyonlar sample pool'un uzun ufuk kararlılığı ve onarım için zorunlu olduğunu, yön algılayan filtrelerin ise sabit yönlü bir biçim için gerekli olduğunu gösterir. Rastgele gürültüden birden çok birey oluşturma hedefi tutmadı. Genişletme olarak, hedef görüntü olmadan ``yaşamayı'' öğrenen bir kural ve kalıtsal bir genomla, hareket, kendiliğinden bölünme ve avcılığın elle yazılmadığı bir ekosistem kurduk; bu ekosistemde dört bağımsız tohum aynı yöne, kalıtsal bir K stratejisine evrilir. Her iki model de tarayıcıda etkileşimli olarak çalışır.
 \end{abstract}
 
 \section{Giriş}
-Nöral hücresel otomatlar (NCA), tek bir öğrenilmiş yerel kuralın hücreleri bir hedef biçime büyütüp onarabildiğini gösterdi~\cite{mordvintsev2020growing}. Bu çalışmaların çoğunda canlının ne olacağına bir hedef görüntü karar verir. Biz tersini soruyoruz: ekosistemdeki canlıların yaratıcısı ağ ve evrim olabilir mi? Ölçütümüz şekil çeşitliliği değil \emph{canlılık}tır. Canlılar kendi kuralıyla hareket etmeli, bölünmeli, birbirini yemeli ve aç kalınca ölmelidir. Bunlardan hiçbiri elle yazılmamalıdır.
+Planarya ikiye, hatta daha çok parçaya bölündüğünde her parça eksik dokularını yeniden üreterek tam bir organizmaya dönüşür~\cite{durant2017longterm,pietak2019planaria}. Merkezi bir plan yoktur: her hücre yalnız komşularıyla etkileşir. Nöral hücresel otomatlar (NCA) bu tür yerel kuralların gradyanla öğrenilebileceğini, tek bir hücreden bir biçim büyütüp onu hasardan koruyabileceğini gösterdi~\cite{mordvintsev2020growing}.
 
-Katkılarımız: (i) davranışı mümkün kılan ama dayatmayan, korunumlu bir NCA fiziği ve hedefsiz bir ``en basit canlı'' ön eğitimi; (ii) dış zar kesmeleri söndükten sonra üremenin canlıların kendi işi olduğu bir ekosistem; (iii) bağımsız tohumlarda paralel evrim, Price ayrıştırması ve ortak bahçe deneyiyle seçilimin düzeyi ve kalıtsallığının ölçülmesi; (iv) Python ile adım paritesi test edilmiş, sunucusuz bir tarayıcı demosu.
+Bu çalışmada şu soruları soruyoruz: (i) öğrenilmiş bir yerel kural tek hücreden hedef biçimi büyütüp rastgele hasarı onarabilir mi? (ii) Kesilen parçaların her biri tam organizmaya dönüşür mü, ve bu parça boyutuna nasıl bağlıdır? (iii) Bölünerek çoğalma, eğitimde açıkça hedeflenmeden, yalnız onarım eğitiminden ortaya çıkar mı? (iv) Rastgele gürültüden başlandığında birden çok birey kendiliğinden oluşur mu? Son olarak bu yerel kuralları, davranışları elle yazılmamış canlılardan oluşan evrimleşen bir ekosisteme genişletiyoruz.
 
 \section{İlgili Çalışmalar}
-NCA büyüme ve onarımı~\cite{mordvintsev2020growing,nca2026review}, izotropik ve yönlendirilebilir kurallar~\cite{mordvintsev2022isotropic,randazzo2023steerable}, dokular~\cite{niklasson2021textures}, 3B~\cite{sudhakaran2021growing3d} ve yumuşak robotlar~\cite{horibe2021softrobots} üzerinde çalışıldı. Kendini kopyalama ve çeşitlilik~\cite{sinapayen2023selfrep,nca2026selfrepdiversity} ile hücreler arası sinyaller~\cite{stovold2023signals} incelendi. Sürekli yapay yaşamda Lenia~\cite{chan2019lenia} ve kütle korunumlu Flow-Lenia~\cite{plantec2025flowlenia} birbirinden ayrı ``türler'' ve parametre yerelleştirmesiyle evrim gösterdi; bizim taşınımımız Flow-Lenia'ya yakındır ama kural öğrenilmiştir ve bireyler kimlik bariyeriyle ayrılır. Genom koşullamasında FiLM~\cite{perez2018film} ve rastgele alt uzayda optimizasyon~\cite{li2018intrinsic} kullanıyoruz. Analizde Price denklemi~\cite{price1970selection}, Tilman'ın kaynak rekabeti (R$^*$)~\cite{tilman1982resource}, r/K seçilimi~\cite{pianka1970rk} ve paralel evrim~\cite{bolnick2018parallel} kavramlarına dayanıyoruz. Biyolojik esin planaryanın biyoelektrik desen hafızasıdır~\cite{durant2017longterm,pietak2019planaria}; araçlar için~\cite{faldor2025cax}.
+NCA büyüme ve onarımı~\cite{mordvintsev2020growing,nca2026review}, izotropik ve yönlendirilebilir kurallar~\cite{mordvintsev2022isotropic,randazzo2023steerable}, dokular~\cite{niklasson2021textures}, 3B~\cite{sudhakaran2021growing3d} ve yumuşak robotlar~\cite{horibe2021softrobots} üzerinde çalışıldı. Kendini kopyalama ve çeşitlilik~\cite{sinapayen2023selfrep,nca2026selfrepdiversity} ile hücreler arası sinyaller~\cite{stovold2023signals} incelendi. Sürekli yapay yaşamda Lenia~\cite{chan2019lenia} ve kütle korunumlu Flow-Lenia~\cite{plantec2025flowlenia} öne çıkar. Planaryanın biyoelektrik desen hafızası~\cite{durant2017longterm} ve beden ekseni modeli~\cite{pietak2019planaria} biyolojik esin kaynağımızdır. Genişletmede FiLM~\cite{perez2018film}, rastgele alt uzay~\cite{li2018intrinsic}, Price denklemi~\cite{price1970selection}, kaynak rekabeti~\cite{tilman1982resource}, r/K seçilimi~\cite{pianka1970rk} ve paralel evrim~\cite{bolnick2018parallel} kavramlarını kullanıyoruz.
 
 \section{Yöntem}
-\subsection{Durum, algı ve genom koşullu kural}
-Hücre durumu $x = [\mathrm{RGB}, m, V, E, h_{1..12}]$'dir: $m$ kütle (hücre $m > 0{,}1$ iken canlı), $V$ yara potansiyeli, $E$ enerji, $h$ gizli kanallar. Dünya alanları kaynak $R$ ve kimlik etiketi $\tau$'dur; ayrıca hücre başına genom $g \in \mathbb{R}^{32}$ taşınır. Kural, $[x, R, F]$ üzerinde özdeşlik, Sobel ve Laplace filtrelerini algılar. $F$, başka bireylere ait komşu kütlesidir. Gizli katman genomla FiLM~\cite{perez2018film} üzerinden değişir:
+\subsection{Hücre durumu ve güncelleme kuralı}
+Dünya $72\times72$'lik bir ızgaradır; hedef, ortasındaki $40\times40$'lık bir planarya görüntüsüdür (pembe baş, kahverengi gövde, koyu kuyruk). Her hücre 16 kanallıdır: görünür RGBA ve 12 gizli kanal. Algılama, sabit özdeşlik, Sobel ($K_x, K_y$) ve Laplace ($K_\Delta$) filtreleriyle yapılır:
 \begin{equation}
-z = W_1 p + b,\quad z' = z \odot (1 + s P_s g) + s P_b g,\quad y = W_2\,\mathrm{relu}(z').
+p_t(x) = \left[ s_t(x),\, (K_x * s_t)(x),\, (K_y * s_t)(x),\, (K_\Delta * s_t)(x) \right].
 \end{equation}
-$P_s, P_b$ tohumlanmış sabit rastgele izdüşümlerdir ve hiç eğitilmez. Böylece evrim, ağırlık uzayının $2\times32$ boyutlu rastgele bir alt uzayında arama yapar~\cite{li2018intrinsic}. Ölçek $s = 0{,}5$'tir. Çıktılar $\Delta[\mathrm{RGB}, h]$, büyüme $\gamma = \sigma(\cdot)$, 9 yönlü akış (softmax: kal + 8 komşu) ve saldırı $a = \sigma(y_a - 4)$'tür; kaydırma sayesinde ata saldırmaz.
+Güncelleme küçük bir MLP'dir ($64\to128\to16$, son katman sıfırla başlatılır, 10\,368 parametre) ve asenkron uygulanır: her hücre her adımda 0,5 olasılıkla güncellenir ($m_t(x)$). Canlılık maskesi, 3$\times$3 komşuluğunda alfası 0,1'i aşan hücresi olmayan hücreyi sıfırlar:
+\begin{equation}
+s_{t+1}(x) = \big( s_t(x) + m_t(x)\, f_\theta(p_t(x)) \big)\cdot \mathbb{1}\!\left[\max_{y\in N(x)} \alpha_t(y) > 0{,}1\right].
+\end{equation}
 
-\subsection{Adım fiziği}
-Fizik elle yazılmıştır ama hiçbir davranışı tetiklemez. Her adımda sırasıyla: (1) kural stokastik ateşleme maskesiyle uygulanır; (2) büyüme enerjiyi kütleye çevirir, hareket kütle başına maliyet öder; (3) \emph{taşınım} kütleyi akış kesirlerine göre dağıtır, $E$ kütleyle, renk, gizli kanallar ve $g$ kütle ağırlıklı taşınır; başka bir bireyin hücresine ya da iki bireyin arasındaki boş hücreye giden pay geri döner, yani bireyler kaynaşmaz; (4) kaynak alımı $\propto m R$ ve bakım $\propto m$; (5) $E \le 0$ ya da canlı komşusu olmayan hücre ölür ve besini $R$'ye döner; (6) yara potansiyeli ölen komşularla artar ve beden içinde yayılır; (7) \emph{yeme}: saldırısı $a$ olan hücre yabancı komşusundan kütle alır, ganimetin $\eta$ payı enerjisine geçer, kurbanın yarasında $V$ yükselir; (8) genom aynı birey içinde homojenleşir ve $g \mathrel{+}= \mu (V + b)\,\xi$ ile mutasyona uğrar ($\mu = 0{,}05$, $b = 0{,}03$). Besin kapalı bir döngüdür: $\sum R + \sum m + \sum E$ korunur (100k adımda göreli kayma $< 10^{-4}$). Dünya sarmaldır (torus).
+\subsection{Eğitim}
+Kural, tek bir tohum hücreden 64--96 adımlık açılımlar üzerinden zamanda geri yayılımla (BPTT) ve Adam ile eğitilir (öğrenme hızı $2\cdot10^{-3}$, 2000. iterasyonda 10 kat düşer; 8000 iterasyon; toplu boyut 8; parametre başına gradyan normalizasyonu). Kayıp, RGBA durumunun hedefle ortalama kare farkıdır. Sample pool~\cite{mordvintsev2020growing} (1024 örnek) uzun ufuklu davranışı öğretir: her iterasyonda havuzdan örnekler alınır, en kötüsü tohumla değiştirilir, sonuçlar havuza geri yazılır.
 
-\subsection{Bireyler ve soy}
-Birey, aynı etiketli hücrelerin sarmal 8-bağlantılı bileşenidir. Aynı etiketin yaşayabilir birden çok bileşeni varsa en büyüğü dışındakiler yeni etiket alır: bu bir \emph{bölünme}dir. Nedeni kaydedilir: dış kesme, saldırı ya da kendiliğinden. Soy konumsal örtüşmeden, örtüşme yoksa kalıtsal etiketten bulunur. 20 hücreden küçük tomurcuklar da kimlik taşır ama sayılmaz. Ebeveynsiz doğumlar koşu başına en çok \%0,08'dir.
+\subsection{Hasar rejimleri}
+Dört rejim karşılaştırılır; R1--R3'te her toplunun 3 örneği hasar görür. \textbf{R0}: hasar yok. \textbf{R1}: dairesel hasar (yarıçap 0,1--0,4). \textbf{R2}: kesme; organizma bir doğruyla kesilir ve rastgele bir taraftaki \%20--80'lik kısım kalır. \textbf{R3}: karma (yarı yarıya R1 ve R2). Her rejim 3 tohumla eğitilir ve her model 100 örnekle değerlendirilir.
 
-\subsection{Ata ön eğitimi: ``en basit canlı''}
-Kural tek bir canlının tek hücreden büyüdüğü küçük sarmal bir arenada, $g = 0$ ile gradyanla eğitilir. Kayıp yalnız canlılık ölçütleridir: toplam kütle $[40, 400]$ aralığında, döküntü yok (bölünmek cezasızdır), enerji pozitif, beden çerçevesinde homeostaz (hareket cezalandırılmaz, ödüllendirilmez de) ve kanal sınırları. Örnek havuzu ve hasar~\cite{mordvintsev2020growing} kullanılır. İlk ata kıtlığı tanımıyordu: dünyada besin bitene kadar büyüyüp her yeri bir halı gibi kapladı. İkinci sürüm (v2) örnek başına rastgele başlangıç besiniyle ($R_0 \in [0{,}2, 1]$) ve havuz yaşlandırmayla (en yaşlı örnekler $\sim$66k adım) uzun ufka göre eğitildi. Kontrol noktası, besin sınırına kadar bölünerek çoğalan ve kapsaması en düşük olan olarak dünya sınamasıyla seçildi. Bu yüzden atanın dünyadaki ilk davranışı bağımsız bir test sayılmaz.
+\subsection{Gürültüden başlatma}
+Tek tohum yerine seyrek rastgele gürültüden (yoğunluk 0,003) başlanır. Konumdan bağımsız bir kayıp için alfa kanalında bağlı bileşenler bulunur. En büyük $K = 3$ bileşenin her biri için ağırlık merkezine hizalanmış $40\times40$ pencere hedefle karşılaştırılır, pencere dışındaki madde cezalandırılır. Bileşen ataması türevlenemez; eksik bireyler için boş bir yere konan ``sanal'' pencere, orada birey büyütmeye doğru türevlenebilir bir vekil sağlar.
 
-\subsection{Deneyler}
-Dünya 192$^2$'dir; 12 kurucu $g = 0$ ile başlar. Koşular 100k adım sürer. Ata başlangıçta bölünmeyi yalnız dış kesmeyle yaşadığı için, alanla orantılı rastgele kesmeler (``hava olayı'') 50k adımda doğrusal olarak sıfıra iner. Koşullar: \textbf{mu1} ($\mu = 0{,}05$) ve \textbf{mu0} (mutasyonsuz kontrol), her biri 4 tohum. Y2 davranışların evrimsel zamanda değişimini, Y3 ekolojik salınımı, Y4 kesmeler söndükten sonra nüfusun sürüp sürmediğini, Y5 kalıtsallığı ölçer. Geç pencere $t \ge 90$k'dır.
+\subsection{Değerlendirme}
+Onarım başarısı, hasardan 200 adım sonra IoU $\ge 0{,}9$ olan örneklerin oranıdır. Onarım süresi, IoU'nun 0,9'un üstünde kalıcı olarak kalmaya başladığı adımdır. Ayrıca hedefle IoU ve MSE, 1000 adımda patlama/sönme oranı ve kesme sonrası birey sayısı ölçülür. Bölünme deneyinde parçalar birbirinden uzaklaştırıldığı için ağırlık merkezine hizalanmış IoU kullanılır.
 
-\section{Sonuçlar}
+\section{Deneyler ve Sonuçlar}
 \begin{figure}[t]
 \centering
-\fig{life_snapshots_life2l.pdf}{\linewidth}
-\caption{Mutasyonsuz (üst) ve mutasyonlu (alt) dünya, aynı tohum. Mutasyonsuzda atanın ince, aynı yöne akan şeritleri; evrimde sınırlarla ayrılmış büyük bedenlerden bir bölge mozaiği.}
-\label{fig:snap}
+\fig{core_examples.pdf}{\linewidth}
+\caption{R1 kuralı (yalnız dairesel onarımla eğitildi, hiç kesme görmedi). Üst: tek hücreden büyüme. Alt: \%30 oranında kesilip ayrılan iki parçanın ikisi de tam bireye dönüşür.}
+\label{fig:examples}
 \end{figure}
 
+\subsection{D1: Büyüme, onarım ve kararlılık}
 \begin{table}[t]
 \centering
-\caption{Geç pencere ($t \ge 90$k), 4 tohum ortalaması.}
-\label{tab:late}
-\begin{tabular}{lrr}
+\caption{D1: büyüme ve dairesel onarım (3 tohum ortalaması).}
+\label{tab:d1}
+\begin{tabular}{lcccc}
 \toprule
- & mu0 & mu1 \\
+rejim & IoU$_{200}$ & IoU$_{1000}$ & onarım oranı & onarım süresi \\
 \midrule
-birey & 316 & 172 \\
-ortalama beden (hücre) & 36 & 152 \\
-kapsama & 0,31 & 0,70 \\
-ortalama besin $R$ & 0,178 & 0,078 \\
-hız (hücre/adım) & 0,031 & 0,007 \\
-avcılık payı & 0,008 & 0,022 \\
-bölünme / birey / 1000 adım & 0,294 & 0,062 \\
-ortalama yaş (adım) & 18\,500 & 32\,100 \\
+R0 hasarsız & 0,998 & 0,998 & 0,73 & 16,4 \\
+R1 dairesel & 0,998 & 0,998 & 1,00 & 6,9 \\
+R2 kesme & 0,994 & 0,993 & 1,00 & 7,4 \\
+R3 karma & 0,999 & 0,998 & 1,00 & 7,0 \\
 \bottomrule
 \end{tabular}
 \end{table}
+Tüm rejimler hedef biçimi büyütür (IoU $\ge 0{,}99$) ve 1000 adım boyunca ne patlar ne söner (Tablo~\ref{tab:d1}, Şekil~\ref{fig:examples}). Hasarla eğitilen R1--R3 dairesel hasarı \%100 onarır; hasar görmeden eğitilen R0 bile \%73 onarır ama iki kat yavaştır.
 
-\subsection{Y4: Üreme canlıların kendi işi oldu}
-Kesmeler 50k adımda sıfıra indikten sonra 16 koşunun (iki koşu kümesi, 2 koşul $\times$ 4 tohum) hiçbiri tükenmedi. Bu dönemdeki bölünmelerin tümü kendiliğindendir. Saldırı nedenli olarak sınıflanan bölünme hiçbir koşuda, 50k öncesinde de görülmedi. Olası neden (doğrulanmadı): yeme çoğunlukla hücre kütlesinin \%5'inden az kemirme olarak kalıyor ve bu eşiğin altı saldırı sayılmıyor. mu0'da ata 1000 adımda birey başı 0,29 tomurcuk vererek nüfusu besin sınırında ($\sim$316 birey) tutar.
-
-\subsection{Y2: Paralel evrim ve K stratejisi}
-mu1'de nüfusun ortalama genomu dört bağımsız tohumda aynı yöne kayar. 32 bileşenin 18'i dört tohumda da aynı işaretlidir (yansız sürüklenmede beklenen 4). Tohum çiftleri arası kosinüs ortalama 0,73'tür (rastgele yönlerde $\pm$0,18); işaret çevirmeli sıfır modelinde $p < 5\cdot10^{-5}$. Bağımsız rastgele akışlarla tekrarlanan dört koşu da aynı yöne gitti: ilk kümenin ortak yönüyle kosinüs 0,75--0,84~\cite{bolnick2018parallel}. Mutasyon gürültüsü işaretçe simetrik olduğundan ortak yön seçilimden gelir.
-
-Seçilen fenotip Tablo~\ref{tab:late}'te görülür: daha büyük, daha yavaş, kişi başı daha seyrek bölünen, daha uzun yaşayan ve biraz daha çok avlanan bedenler. Bu bedenler besini mu0'daki düzeyin yarısının altına indirir. Tilman'ın R$^*$ ilkesine göre kıt kaynak rekabetini kaynağı en düşük düzeyde sürdürebilen tip kazanır~\cite{tilman1982resource}; gözlenen geçiş r'den K'ya bir stratejidir~\cite{pianka1970rk}. Beden büyümesinin çoğu kesmeler söndükten sonra gelir: bozulma rejimi büyük bedeni frenliyordu (Şekil~\ref{fig:ts}).
-
-\begin{figure}[t]
-\centering
-\fig{life_timeseries_life2l.pdf}{\linewidth}
-\caption{Birey sayısı, hız, avcılık payı ve kendiliğinden bölünme (4 tohum ortalaması $\pm$ standart hata). Kesikli çizgi: dış kesmeler sıfır.}
-\label{fig:ts}
-\end{figure}
-
-\subsection{Seçilim hangi düzeyde?}
-Mutasyon somatiktir: yaşayan bedenin hücrelerinde işler. Gözlenen kayma bireyler arası seçilimden de, beden içinde büyümeyi artıran hücre soylarının yayılmasından da gelebilir. Ardışık genom dökümleri (her 1000 adım) arasında Price denklemini~\cite{price1970selection} uyguladık. $t$'deki her birey için $w_i$, $t+T$'deki torun sayısı ve $g'_i$ torunlarının ortalama genomudur:
-\begin{equation}
-\Delta \bar g = \underbrace{\mathrm{Cov}(w, g)/\bar w}_{\text{seçilim}} + \underbrace{\mathrm{E}[w (g' - g)]/\bar w}_{\text{aktarım}}.
-\end{equation}
-Terimleri bağımsız ilk koşu kümesinin ortak yönüne izdüşürdük. 100k adımda birikimli seçilim 1,74--1,79, aktarım 0,82--1,22'dir. Seçilim payı \%60--68'dir ve dört tohumun dördünde de büyüktür (Şekil~\ref{fig:price}). Aktarım da aynı yöndedir. Mutasyon yön gözetmediği için bu, beden içi hücre soyları arasında da aynı yönde seçilim olduğunu gösterir. Kaymanın $\sim$\%85'i kesmeler sürerken, ilk 50k adımda oluşur.
-
-\begin{figure}[t]
-\centering
-\fig{life_price_life2l.pdf}{\linewidth}
-\caption{Ortak yön üzerinde birikimli Price terimleri, tohum başına. Mavi: bireyler arası seçilim; turuncu: aktarım (beden içi değişim).}
-\label{fig:price}
-\end{figure}
-
-\subsection{Y5: Ortak bahçe}
-Evrimleşmiş genomun etkisi kalıtsal mı, ve yönden mi büyüklükten mi geliyor? Her genomu kendi taze dünyasına koyduk: 128$^2$, aynı genomlu 6 kurucu, mutasyon ve kesme yok, 15k adım, ölçüm son 5k adım, genom başına 3 tekrar. Gruplar: ata ($g = 0$), dört evrim genomu (mu1 tohumlarının son ortalama genomu) ve her evrim genomuyla aynı normda ikişer rastgele yönlü genom.
-
-Evrim genomları bu dünyada da büyük (1110 $\pm$ 720 hücre), yavaş (0,0035 hücre/adım) ve besini düşük tutan ($R$ 0,048) bedenler üretir (Şekil~\ref{fig:garden}). Fenotip kalıtsaldır: rekabet, kesme ve mutasyon olmadan genomdan yeniden doğar. Aynı normdaki rastgele genomlar ise ataya benzer ya da daha küçük ve hızlı kalır (74 hücre, 0,126 hücre/adım, $R$ 0,80); biri üç tekrarında da tükenir. Rastgele genomlar kaynak evrim genomuyla eşleşik olduğundan etiketleri yalnız kaynak içinde değiştiren kesin bir permütasyon testi kullandık (54 atama, ulaşılabilecek en küçük $p \approx 0{,}019$). Beden ve besinde her kaynakta tam ayrışma vardır ($p = 0{,}019$), hızda $p = 0{,}037$; kişi başı bölünmede fark anlamlı değildir ($p = 0{,}11$). Dört kaynakla bu tasarım dört ölçü için Bonferroni eşiğine ulaşamaz; daha güçlü bir sonuç için daha çok bağımsız evrim koşusu gerekir. Yani etki genomun büyüklüğünden değil, seçilen yönden gelir. Bahçede evrim bedenleri evrim dünyasındakinden çok daha büyüktür; rakipsiz ve kesmesiz dünyada beden besin sınırına kadar büyüyor olabilir.
-
-\begin{figure*}[t]
-\centering
-\fig{life_garden.pdf}{0.9\textwidth}
-\caption{Ortak bahçe: genom başına (3 tekrar ortalaması) beden, hız, kişi başı bölünme ve ortalama besin. Çizgi: grup ortalaması.}
-\label{fig:garden}
-\end{figure*}
-
-\subsection{Y3: Ekolojik dinamik}
-Kesmeler söndükten sonra birey sayısı ve avcılık payının eğilimden arındırılmış otokorelasyonunda düzenli bir av--avcı salınımı yoktur. mu1'de birey sayısı yavaş dalgalanır (ACF'nin ilk negatif lobu $-0{,}40\ldots-0{,}54$), ancak gecikmeler tohumdan tohuma 6k--20k adım arasında dağınıktır. Bu, periyodik bir salınımdan çok uzun ömürlü bedenlerin yavaş nüfus devrine uyar.
-
-\section{Tartışma}
-\textbf{Ne çıktı.} Hareket, kendiliğinden bölünme, avcılık ve açlıkla ölüm ağın kuralından ve fizikten çıkıyor. Kesmeler söndükten sonra üreme tümüyle canlıların kendi işi. Evrim tekrarlanabilir bir yöne gidiyor ve bu yön kalıtsal bir fenotip taşıyor.
-
-\textbf{Ne beklemiyorduk.} Evrim daha hareketli bir dünyaya değil, durağan bir bölge mozaiğine yakınsıyor: hız mu0'ın dörtte biri. Hareket ve sık bölünme kıt besinde bedeldir; K stratejisi kazanır. ``Yaşayan ekosistem'' hedefi açısından bu bir sınırdır: geç dönem dünya canlıdır ama yavaştır.
-
-\textbf{Sınırlar.} (i) Mutasyon somatiktir; seçilim iki düzeyde birden işler ve aktarım terimi mutasyonla beden içi seçilimi ayırmaz. (ii) Ön eğitimde yabancı beden olmadığından $F$ girdisi hep sıfırdı; dünyada sıfır değildir. Avcılık bu boşlukta evrimleşmek zorundadır ve zayıf kaldı (pay 0,02). (iii) Tek ata tohumu ve tek ön eğitim koşusu vardır. Ata kontrol noktası dünya davranışına bakılarak seçildi. (iv) Kimlik etiketlerinin $\sim$9000 değeri vardır; nadir çakışmada yanlış ebeveyn seçilebilir.
-
-\textbf{İlk yaklaşım ve neden terk edildi.} İlk ekosistemimizde ata, elle tasarlanmış bir planarya biçim uzayından (8 genli) hedef görüntülere göre eğitilmişti. Görülmemiş genomların \%100'ü yaşayabilir canlı üretti (hedefine IoU 0,967), soylar arasında kalıtsal uygunluk farkı vardı ($H^2 = 0{,}72$) ve popülasyon uygunluğu 30k adımda \%30--40 arttı. Ancak en iyi kurucunun ötesinde bir yenilik gösterilemedi ($p \approx 0{,}08$). Daha önemlisi canlılar kendi başlarına hiçbir şey yapmıyordu: hareket etmiyorlardı, üreme dışarıdan bir zar kesmesiydi ve biçimlerini biz tasarlamıştık. Bu yüzden hedef görüntüyü kaldırıp bu çalışmadaki hedefsiz, korunumlu fiziğe geçtik.
-
-\textbf{Taban çizgisi.} Aynı kod tabanının tek hedefli NCA katmanında~\cite{mordvintsev2020growing} büyüme IoU $\ge 0{,}99$'a ulaşır; dairesel hasarla eğitilen kural kesme eğitimi olmadan kendiliğinden bölünür (parça eğrisi: Şekil~\ref{fig:d2}). Bu gözlem, bölünmenin kuralın ulaşabileceği bir davranış olduğuna dair ilk ipucuydu.
-
+\subsection{D2: Parça boyutu ve kendiliğinden bölünme}
 \begin{figure}[t]
 \centering
 \fig{d2_fragment_curve.pdf}{\linewidth}
-\caption{Taban çizgisi: parça boyutu--yenilenme başarısı (rejim başına, 3 tohum ortalama $\pm$ std).}
+\caption{D2: kalan parça oranına göre yerinde yenilenme başarısı (rejim başına 3 tohum ortalaması $\pm$ std).}
 \label{fig:d2}
 \end{figure}
+Organizma kesilip parçalardan biri yerinde bırakıldığında (Şekil~\ref{fig:d2}), R0 parça küçüldükçe hızla çöker (\%50'de 0,31). Kesmeyle eğitilen R2 ve R3, \%20'lik parçalardan bile \%96 başarıyla yenilenir; \%10'da keskin bir alt sınır vardır (0,05 ve 0,29). Yalnız dairesel hasar gören R1 kısmen genelleşir (\%50'de 0,86, \%10'da 0,31).
 
-\section{Demo}
-Ekosistem tarayıcıda sunucusuz çalışır (\texttt{demo/life.html}). Kural WebGL2'de hesaplanır (GPU ile CPU farkı $\sim 2\cdot10^{-6}$); fizik, yeme ve soy izleme JavaScript'tedir. Python ile adım paritesi ($<10^{-4}$), 2000 adım besin korunumu ve soy izleme testleri vardır. Kullanıcı ata, evrimleşmiş ya da mutasyonsuz bir dünyadan başlar; canlıları keser, siler, tohum eker ve seçtiği bir canlının hızını, avcılık payını, yaşını ve ebeveynini izler.
+\textbf{Bölünme.} İkinci düzende organizma ikiye kesilir ve parçalar birbirinden ayrılır; başarı, iki parçanın \emph{ikisinin de} tam bireye dönüşmesidir. Hiç kesme görmemiş R1, \%30--50 kesmelerde \%92--95, \%20'de \%88 oranında iki tam birey üretir (Şekil~\ref{fig:examples}). Hasarsız R0'da bu oran \%30--44'te kalır; kesmeyle eğitilen R2 ve R3 \%20'den itibaren \%100'dür. Yani bölünerek çoğalma, eğitimde açıkça hedeflenmeden, yalnız dairesel onarım eğitiminden ortaya çıkar: eksik dokuyu tamamlamayı öğrenen kural, ``eksik'' olanın organizmanın yarısı olduğu durumda da aynı şeyi yapar.
+
+\subsection{D3--D5: Kesim yönü, konum bilgisi ve müdahale}
+R1--R3 baş tarafı, kuyruk tarafı ve orta gövde parçalarının hepsinden $\approx$\%100 yenilenir; R0 küçük baş taraflı parçalarda tümüyle başarısızdır. Gizli kanallar eksen boyunca konumu kodlar: doğrusal bir prob $R^2 = 0{,}76$--$0{,}79$, ikinci derece bir prob $0{,}97$--$0{,}99$ verir; bilgi vardır ama doğrusal değildir. Planaryadaki iki başlı (Janus) fenotipi taklit etmek için baş bölgesinin gizli durumunu gövdeye zorlayan müdahaleler Janus üretmedi. Yön algılayan kural ``başın altında gövde'' yönünü öğrendiği için güçlü müdahaleler bunun yerine yaradan bağlı ikinci bir birey (``ikiz'', koşula göre \%27--74) başlatır. Bu morfoloji yeniden kesmede çoğu koşulda korunmaz (\%0--8).
+
+\subsection{D6: Gürültüden başlatma (tutmadı)}
+Sıfırdan eğitim her şeyi öldüren, gradyansız bir yerel minimuma düştü. R3 ağırlıklarından ince ayar ise birey yerine yarı saydam lekeler üretti: örnek başına ortalama 2,8 bileşen, birey IoU 0,10, iyi birey sayısı 0. Karşılaştırma olarak gürültüyle hiç eğitilmemiş R3, seyrek gürültüde her canlı hücreyi bir tohum gibi büyütür (ortalama 3,9 bileşen, birey IoU 0,53, örnek başına 1,2 iyi birey), ancak büyüyen bireyler çarpışıp birleşir. Öneride yedek olarak anılan evrim stratejileri (OpenAI-ES / CMA-ES) uygulanmadı; türevlenemeyen birey sayısı hedefi için doğal sonraki adımdır.
+
+\subsection{Ablasyonlar}
+\begin{table}[t]
+\centering
+\caption{Ablasyonlar (R3 rejimi, tohum 0): büyüme, uzun ufuk ve onarım.}
+\label{tab:abl}
+\begin{tabular}{lcccc}
+\toprule
+model & IoU$_{200}$ & IoU$_{1000}$ & onarım & süre \\
+\midrule
+tam model (R3) & 0,999 & 0,999 & 1,00 & 7,2 \\
+gizli kanal 8 & 0,997 & 0,997 & 1,00 & 6,9 \\
+gizli kanal 4 & 0,972 & 0,967 & 1,00 & 10,2 \\
+pool yok & 0,992 & 0,670 & 0,00 & -- \\
+yalnız Sobel & 0,998 & 1,000 & 1,00 & 7,3 \\
+yalnız Laplace & 0,421 & 0,442 & 0,00 & -- \\
+eşzamanlı güncelleme & 1,000 & 1,000 & 1,00 & 4,8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Tablo~\ref{tab:abl} her ablasyonu tek tohumla karşılaştırır. Sample pool olmadan kural 200 adımda biçimi büyütür ama 1000 adımda bozulur (IoU 0,67) ve hiçbir hasarı onaramaz; uzun ufuklu kararlılık ve onarım pool'dan gelir. Yalnız Laplace (izotropik) algı sabit yönlü bir biçimi öğrenemez (IoU 0,42); izotropik bir NCA döndürmeye duyarsız bir kayıp gerektirir~\cite{mordvintsev2022isotropic}. Laplace'ı çıkarmak sonucu değiştirmez. 4 gizli kanal hâlâ çalışır ama doğruluk ve onarım hızı düşer. Eşzamanlı güncelleme bu düzende zarar vermez, onarımı hızlandırır; asenkron güncellemenin bu biçim için gerekli olmadığı görülür.
+
+\section{Genişletme: Kendi Kendine Yaşayan Bir Ekosistem}
+Yukarıdaki kural biçimini bir hedef görüntüden öğrenir ve kendi başına hiçbir şey yapmaz: hareket etmez, bölünmesi dışarıdan bir kesmedir. Projeyi, davranışları elle yazılmamış canlılardan oluşan bir ekosisteme genişlettik.
+
+\textbf{Model.} Hücre durumu $[\mathrm{RGB}, m, V, E, h]$'dir: kütle $m$, yara potansiyeli $V$, enerji $E$. Kural, $[x, R, F]$'yi algılar ($R$ kaynak, $F$ yabancı komşu kütlesi) ve büyüme, 9 yönlü akış ve saldırı çıktıları verir. Kütle korunumlu taşınım bireyleri birbirine karıştırmaz; besin kapalı bir döngüdür ($\sum R + \sum m + \sum E$ 100k adımda $10^{-4}$ içinde korunur). Hücre başına kalıtsal bir genom $g \in \mathbb{R}^{32}$, gizli katmanı sabit rastgele bir FiLM izdüşümüyle değiştirir: $z' = z \odot (1 + s P_s g) + s P_b g$~\cite{perez2018film,li2018intrinsic}. Genom yaralarda ve yavaş bir taban hızla mutasyona uğrar. Kural hedef görüntü olmadan, yalnız canlılık ölçütleriyle (kütle aralığı, döküntü yok, pozitif enerji, beden çerçevesinde homeostaz) ve kıtlığa dayanıklı olacak şekilde eğitildi. Hareket, bölünme ve saldırı fizikle yalnızca \emph{mümkün} kılınır; ne zaman yapılacağına kural karar verir.
+
+\textbf{Deney.} 192$^2$'lik sarmal dünyada 12 kurucu $g = 0$ ile başlar. Başlangıçtaki rastgele dış kesmeler 50k adımda sıfıra iner; koşular 100k adım sürer. Mutasyonlu (mu1) ve mutasyonsuz (mu0) koşullar 4'er tohumla koşuldu.
+
+\begin{figure}[t]
+\centering
+\fig{life_snapshots_life2l.pdf}{\linewidth}
+\caption{Ekosistem, aynı tohum: mutasyonsuz (üst) ve mutasyonlu (alt) dünya. Evrimde sınırlarla ayrılmış büyük bedenlerden bir bölge mozaiği oluşur.}
+\label{fig:snap}
+\end{figure}
+
+\textbf{Sonuçlar.} Kesmeler söndükten sonra 16 koşunun hiçbiri tükenmedi; üreme tümüyle kendiliğinden bölünmeyle sürdü. Mutasyonlu koşularda dört bağımsız tohumun ortalama genomu aynı yöne evrildi: 32 bileşenin 18'i dördünde de aynı işaretlidir ve tohum çiftleri arası kosinüs 0,73'tür (işaret çevirmeli sıfır modelinde $p < 5\cdot10^{-5}$). Bağımsız rastgele akışlarla tekrarlanan dört koşu da aynı yöne gitti (kosinüs 0,75--0,84)~\cite{bolnick2018parallel}. Evrilen fenotip bir K stratejisidir (Şekil~\ref{fig:snap}). Geç dönemde ($t \ge 90$k) mu0 ile mu1 şöyle karşılaştırılır:
+\begin{itemize}
+\item ortalama beden 36'ya karşı 152 hücre;
+\item hız 0,031'e karşı 0,007 hücre/adım;
+\item birey başına bölünme 1000 adımda 0,294'e karşı 0,062;
+\item ortalama ömür 18\,500'e karşı 32\,100 adım;
+\item besin düzeyi $R$ 0,18'e karşı 0,08.
+\end{itemize}
+Bu Tilman'ın R$^*$ ilkesine uyar: kıt kaynak rekabetini kaynağı en düşük düzeyde sürdürebilen tip kazanır~\cite{tilman1982resource,pianka1970rk}. Ardışık soy dökümleri üzerinde Price ayrıştırması~\cite{price1970selection}, ortak yöndeki kaymanın \%60--68'ini bireyler arası seçilime, kalanını aynı yönde beden içi değişime bağlar.
+
+Kalıtsallığı ortak bahçe deneyiyle sınadık. Her genom kendi taze dünyasına kondu: mutasyon, kesme ve rakip yok. Evrim genomları burada da büyük (1110 $\pm$ 720 hücre), yavaş (0,0035) ve besini düşük tutan ($R$ 0,048) bedenler üretir. Aynı normdaki rastgele yönlü genomlar ise küçük ve hızlı kalır ya da tükenir (Şekil~\ref{fig:garden}). Kaynak içi kesin permütasyon testinde beden ve besinde her kaynakta tam ayrışma vardır ($p = 0{,}019$; 54 atamayla ulaşılabilecek en küçük değer), hızda $p = 0{,}037$. Dört kaynakla bu tasarım dört ölçü için Bonferroni eşiğine ulaşamaz. Etki genomun büyüklüğünden değil, seçilen yönden gelir.
+
+\begin{figure}[t]
+\centering
+\fig{life_garden.pdf}{\linewidth}
+\caption{Ortak bahçe: genom başına (3 tekrar ortalaması) beden, hız, kişi başı bölünme ve ortalama besin. Çizgi: grup ortalaması.}
+\label{fig:garden}
+\end{figure}
+
+\section{Etkileşimli Demolar}
+İki model de sunucusuz olarak tarayıcıda çalışır ve Python ile adım paritesi test edilmiştir. \texttt{demo/index.html}'de kullanıcı planaryayı fareyle siler, keser ya da gizli kanallarına müdahale eder ve kuralın onarımını gerçek zamanlı izler. \texttt{demo/life.html}'de ekosistem kuralı WebGL2'de hesaplanır (GPU ile CPU farkı $\sim 2\cdot10^{-6}$). Kullanıcı ata, evrimleşmiş ya da mutasyonsuz bir dünyadan başlar; canlıları keser, siler, tohum eker ve seçtiği bir canlının hızını, avcılık payını, yaşını ve ebeveynini izler.
+
+\section{Tartışma ve Sınırlar}
+\textbf{Ana katman.} Öğrenilmiş yerel kural büyüme, onarım ve parçalardan yenilenmeyi güvenilir biçimde yapar. En ilginç sonuç, bölünerek çoğalmanın onarım eğitiminin bir yan ürünü olarak ortaya çıkmasıdır. Kesme eğitimi \%10'luk parçalarda keskin bir alt sınır gösterir: o boyutta parça, kuralın biçimi yeniden kurmak için okuduğu konum bilgisini taşımıyor olabilir. Gürültüden birden çok birey oluşturma hedefi tutmadı; türevlenebilir vekil kayıp çarpışan bireyler sorununu çözmedi. Ablasyonlar tek tohumla yapıldı.
+
+\textbf{Genişletme.} Evrim daha hareketli bir dünyaya değil, durağan bir bölge mozaiğine yakınsıyor; kıt besinde hareket ve sık bölünme bedeldir. Mutasyon somatiktir ve seçilim iki düzeyde birden işler. Ön eğitimde yabancı beden olmadığından $F$ girdisi hep sıfırdı; avcılık bu boşlukta evrimleşmek zorundadır ve zayıf kaldı (pay 0,02). Tek bir ata eğitim koşusu vardır.
+
+\textbf{İlk ekosistem denemesi.} Genişletmenin ilk sürümünde ata, elle tasarlanmış bir planarya biçim uzayından hedef görüntülere göre eğitilmişti. Görülmemiş genomların \%100'ü yaşayabilir canlı üretti (hedefine IoU 0,967) ve soylar arasında kalıtsal uygunluk farkı vardı ($H^2 = 0{,}72$), ancak canlılar kendi başlarına hiçbir şey yapmıyordu. Bu yüzden hedef görüntüyü kaldırıp yukarıdaki hedefsiz, korunumlu fiziğe geçtik.
 
 \section{Sonuç}
-Hedefsiz eğitilmiş tek bir yerel kural ve korunumlu bir fizik, davranışları elle yazılmamış canlılardan oluşan, kendi kendine süren bir ekosistem kurmaya yetiyor. Bu ekosistemde evrim tekrarlanabilir ve kalıtsal bir K stratejisi seçiyor. Seçilimin çoğu bireyler arasında, bir kısmı beden içinde işliyor. Sıradaki soru, durağan mozaiğin yerine hareketi ödüllendiren bir dünya (örneğin uzayda ve zamanda değişen kaynak) ile daha canlı bir ekolojinin evrimleşip evrimleşmeyeceğidir.
+Tek bir öğrenilmiş yerel kural, merkezi bir kontrol olmadan bir organizmayı büyütmeye, onarmaya ve parçalarından yeniden kurmaya yetiyor. Bölünerek çoğalma, yalnız onarım eğitiminden kendiliğinden ortaya çıkıyor. Aynı yerel kural fikri, hedef görüntü yerine canlılık ölçütleri ve kalıtsal bir genomla, kendi kendine süren ve tekrarlanabilir biçimde evrilen bir ekosisteme genişletilebiliyor. Sıradaki adımlar, gürültüden çok bireyli başlatma için evrim stratejileri ve hareketi ödüllendiren, zamanla değişen kaynaklı bir dünyadır.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}
