@@ -20,3 +20,6 @@ runs/ancestor_bank_*.npz
 # geçici test çıktıları
 runs/_ui/
 runs/_gl/
+
+# ölçüm aracı çalışma dizini
+.measure/
