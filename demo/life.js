@@ -225,8 +225,13 @@
       const NI = 3 + nh + G;
       if (this.forwardHook) this.forwardHook(out);
       else this.forward(out);
-      const m = new Float64Array(N), En = new Float64Array(N), Vold = new Float32Array(N);
-      const was = new Uint8Array(N), flow = new Float64Array(N * 9), inten = new Float64Array(N * NI);
+      const S = this.scratch || (this.scratch = {
+        m: new Float64Array(N), En: new Float64Array(N), Vold: new Float32Array(N), was: new Uint8Array(N),
+        flow: new Float64Array(N * 9), inten: new Float64Array(N * NI), tmax: new Float64Array(N), tmin: new Float64Array(N),
+        move: new Float64Array(N * 8), stay: new Float64Array(N), m2: new Float64Array(N), E2: new Float64Array(N),
+        num: new Float64Array(N * NI), tag2: new Float32Array(N), alive: new Uint8Array(N) });
+      const { m, En, Vold, was, flow, inten, tmax, tmin, move, stay, m2, E2, num, tag2, alive } = S;
+      move.fill(0);
       for (let i = 0; i < N; i++) {
         const mi = x[i * C + M], Ei = x[i * C + E];
         was[i] = mi > ALIVE;
@@ -247,7 +252,6 @@
         R[i] += cmove;
       }
       // taşınım (transport): kütle korunumlu, bireyler kaynaşmaz
-      const tmax = new Float64Array(N), tmin = new Float64Array(N);
       for (let i = 0; i < N; i++) {
         let a = -1e9, b = 1e9;
         for (let j = 0; j < 9; j++) {
@@ -257,7 +261,6 @@
         tmax[i] = a;
         tmin[i] = b;
       }
-      const move = new Float64Array(N * 8), stay = new Float64Array(N);
       for (let i = 0; i < N; i++) {
         let st = flow[i * 9];
         for (let k = 0; k < 8; k++) {
@@ -270,7 +273,6 @@
         }
         stay[i] = st;
       }
-      const m2 = new Float64Array(N), E2 = new Float64Array(N), num = new Float64Array(N * NI), tag2 = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         let qm = m[i] * stay[i], qe = En[i] * stay[i];
         const b = i * NI;
@@ -290,7 +292,6 @@
         tag2[i] = tg;
       }
       // kaynak alımı, bakım, ölüm
-      const alive = new Uint8Array(N);
       for (let i = 0; i < N; i++) {
         const u = Math.min(R[i], ph.k_up * R[i] * Math.min(1, Math.max(0, m2[i]))), c = ph.c_m * m2[i];
         R[i] = R[i] - u + c;
@@ -412,9 +413,14 @@
       let vmax = -Infinity;
       for (let i = 0; i < N; i++) vmax = Math.max(vmax, x[i * C + V] + base);
       if (vmax <= 0) return;
-      const xi = new Float32Array(N), hs = new Float32Array(N);
+      // shortcut: gürültü önceden üretilmiş 2^20'lik gaussian tablosundan rastgele kaymayla okunur (Box-Muller
+      // adım başına 1,2 M çağrı, demoyu 115 ms yavaşlatıyordu); ardışık adımların alanları kısmen kaydırılmış
+      // kopya olabilir, görsel demo için yeterli; istatistik deney gerekirse doğrudan gauss'a dön
+      if (!this.gtab) { this.gtab = new Float32Array(1 << 20); for (let i = 0; i < this.gtab.length; i++) this.gtab[i] = gauss(this.rand); }
+      const tab = this.gtab, TM = tab.length - 1, xi = this._xi || (this._xi = new Float32Array(N)), hs = this._hs || (this._hs = new Float32Array(N));
       for (let c = 0; c < G; c++) {
-        for (let i = 0; i < N; i++) xi[i] = gauss(this.rand);
+        const off = Math.floor(this.rand() * tab.length);
+        for (let i = 0; i < N; i++) xi[i] = tab[(off + i) & TM];
         for (let y = 0; y < H; y++)
           for (let xx = 0; xx < W; xx++) {
             let s = 0;
