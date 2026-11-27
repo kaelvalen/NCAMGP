@@ -59,3 +59,8 @@ düzeyde sürdürebilen tip kazanır. Beden büyümesinin çoğu dış kesmeler 
    doğmuş sayılıyor ve soy takibi kopuyor. Ölçü yorumda kullanılmadı; soy ağacı analizi
    (madde 1) bu düzeltmeyi gerektirir.
 4. `orgs.json` kayıtları boyut nedeniyle gzip'lendi (`orgs.json.gz`).
+
+**Düzeltme (27 Kasım, `6ee8adc`):** Bu koşulardaki soy izleme, 20 hücreden küçük tomurcukları ve 10 adımda
+boyundan fazla kayan küçük bedenleri kaybediyordu (mu1_s0: 18828 doğumun 16074'ü ebeveynsiz). Bu yüzden
+bu tablodaki bölünme sayısı, ortalama yaş ve kuşak ölçüleri yanlı; nüfus, alan, kapsama, R, hız ve genom
+ölçüleri etkilenmez. Düzeltilmiş ölçüler `runs/life2l_*` ve `summary_life_life2l.md`'de.
