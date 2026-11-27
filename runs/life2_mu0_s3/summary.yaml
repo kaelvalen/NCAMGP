@@ -1,0 +1,28 @@
+extinct: false
+film_scale: 0.5
+n_orgs_total: 82854
+params:
+  anneal_steps: 50000
+  attack_frac_min: 0.05
+  birth_cost: 0.3
+  cause_window: 50
+  cost: 0.006
+  cut_rate: 0.002
+  cut_ref_area: 300.0
+  e_max: 1.0
+  e_share: 0.5
+  e_share_iters: 4
+  g_clip: 3.5
+  min_cut_area: 80
+  min_org_area: 20
+  min_viable: 10
+  mu: 0.0
+  mu_base: 0.03
+  r_diffuse: 0.25
+  regrow: 0.004
+  seed_grace: 150
+  self_tol: 0.05
+  track_every: 10
+  uptake: 0.15
+sec: 4888
+t: 100000

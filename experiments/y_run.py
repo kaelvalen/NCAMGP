@@ -1,0 +1,85 @@
+"""Yaşayan ekosistem koşusu (Y2-Y4 ham verisi). Ön eğitilmiş ata, g = 0 kurucularla 192² dünyada;
+dış kesmeler anneal_steps boyunca söner.
+
+Koşullar: mu1 (config'teki μ), mu0 (μ = 0, kalıtsal varyasyonsuz kontrol).
+Çıktı: runs/lifeworld_<koşul>_s<tohum>/ history.csv, events.csv, orgs.json, summary.yaml, snap_<t>.png
+Tükenmede erken biter (summary.yaml: extinct).
+
+Kullanım: uv run python experiments/y_run.py --cond mu1 --seed 0 [--config configs/life_world.yaml --set steps=2000]
+          [--save_state 3000 100000]  (demo durumları: state_<t>.npz {x, g, R float16; tag float32; t})
+"""
+
+import argparse
+import csv
+import json
+import sys
+import time
+from dataclasses import asdict
+from pathlib import Path
+
+import numpy as np
+import torch
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from nca.life_world import LifeParams, LifeWorld  # noqa: E402
+from nca.train_life import load_life, render  # noqa: E402
+from nca.utils import ROOT, load_config, save_grid, to_uint8  # noqa: E402
+
+
+def write_csv(path, rows):
+    keys = list(dict.fromkeys(k for r in rows for k in r))
+    with open(path, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=keys)
+        w.writeheader()
+        w.writerows(rows)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="configs/life_world.yaml")
+    ap.add_argument("--cond", choices=["mu1", "mu0"], default="mu1")
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--name", default="lifeworld")
+    ap.add_argument("--set", nargs="*", default=[])
+    ap.add_argument("--save_state", type=int, nargs="*", default=[], help="bu adımlarda state_<t>.npz (demo)")
+    args = ap.parse_args()
+    cfg = load_config(ROOT / args.config, args.set)
+    model, phys = load_life(ROOT / "runs" / cfg["run"])
+    model.film_scale = cfg["film_scale"]
+    wp = dict(cfg["world"])
+    if args.cond == "mu0":
+        wp["mu"] = 0.0
+    out = ROOT / "runs" / f"{args.name}_{args.cond}_s{args.seed}"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "config.yaml").write_text(yaml.safe_dump({**cfg, "cond": args.cond, "seed": args.seed}, allow_unicode=True))
+    w = LifeWorld(model, phys, size=cfg["size"], n_seeds=cfg["n_seeds"], params=LifeParams(**wp), seed=args.seed)
+    torch.manual_seed(args.seed)  # mutasyon gürültüsü genel üreteçten çekiliyor: koşu tekrarlanabilir olsun
+    t0 = time.time()
+    dump = []  # Price ayrıştırması için: (t, id, alan, genom) her dump_every adımda, eşik altı parçalar dahil
+    with torch.no_grad():
+        while w.t < cfg["steps"] and not w.extinct:
+            w.step()
+            if w.t % cfg.get("dump_every", 1000) == 0:
+                dump += [(w.t, o.id, o.area, *o.genome) for o in w.orgs.values() if o.alive and o.genome]
+            if w.t in args.save_state:  # yalnız okur: RNG akışına dokunmaz, koşu aynı kalır
+                np.savez_compressed(out / f"state_{w.t:06d}.npz", t=w.t, tag=w.tag[0, 0].cpu().numpy(),
+                                    **{k: getattr(w, k)[0].cpu().numpy().astype(np.float16) for k in ("x", "g")},
+                                    R=w.R[0, 0].cpu().numpy().astype(np.float16))
+            if w.t % cfg["snapshot_every"] == 0:
+                save_grid(out / f"snap_{w.t:06d}.png", list(to_uint8(render(w.x))), scale=2)
+                h = w.history[-1]
+                print(f"[{out.name}] t={w.t} birey={h['n_org']} hız={h['speed']:.3f} avcılık={h['pred_share']:.3f} "
+                      f"kesme={h['cut_rate']:.5f} toplam_birey={len(w.orgs)} {time.time() - t0:.0f}s", flush=True)
+    write_csv(out / "history.csv", w.history)
+    write_csv(out / "events.csv", [dict(zip(["t", "type", "id", "parent", "cause"], e)) for e in w.events])
+    np.save(out / "lineage.npy", np.array(dump, dtype=np.float32).reshape(len(dump), -1))
+    (out / "orgs.json").write_text(json.dumps([asdict(o) for o in w.orgs.values()], default=float))
+    (out / "summary.yaml").write_text(yaml.safe_dump({
+        "t": w.t, "extinct": bool(w.extinct), "n_orgs_total": len(w.orgs), "sec": round(time.time() - t0),
+        "params": asdict(w.p), "film_scale": model.film_scale}, allow_unicode=True))
+    print(f"[{out.name}] bitti t={w.t} tükenme={w.extinct} {time.time() - t0:.0f}s", flush=True)
+
+
+if __name__ == "__main__":
+    main()

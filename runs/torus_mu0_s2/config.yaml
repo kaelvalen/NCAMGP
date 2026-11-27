@@ -1,0 +1,15 @@
+cond: mu0
+film_scale: 1.0
+n_seeds: 12
+run: life_s0
+seed: 2
+size: 192
+snapshot_every: 5000
+steps: 100000
+world:
+  anneal_steps: 50000
+  cause_window: 50
+  cut_rate: 0.002
+  min_viable: 10
+  mu: 0.1
+  mu_base: 0.03

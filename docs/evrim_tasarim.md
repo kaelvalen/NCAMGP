@@ -1,5 +1,8 @@
 # Evrimsel NCA Ekosistemi — Tasarım (yeni ana katkı)
 
+> **Yerini alan tasarım (25 Kasım 2026):** planarya atası kaldırıldı; canlıların yaratıcısı ağ ve evrim.
+> Bkz. `docs/yasayan-ekosistem/tasarim.md`. Bu belge ilk yaklaşımın kaydı olarak kalır.
+
 Karar (16 Ekim 2026): hedefli NCA sonuçları (büyüme, onarım, parça eğrisi, prob/müdahale)
 zorunlu **Çekirdek** katman ve taban çizgisi olarak kalır. Ana katkı, hedef görüntüsü olmayan,
 açık uçlu bir evrimsel ekosistemdir. İyileşme ölçütü: **ekolojik hayatta kalma**.

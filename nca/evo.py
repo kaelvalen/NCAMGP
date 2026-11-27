@@ -25,8 +25,10 @@ def life_mask(x):
     return F.max_pool2d(x[:, 3:4], 3, stride=1, padding=1) > ALIVE_THRESHOLD
 
 
-def box3(t):
-    """3x3 toplam (sıfır dolgulu)."""
+def box3(t, circular=False):
+    """3x3 toplam (sıfır dolgulu ya da sarmal)."""
+    if circular:
+        return F.avg_pool2d(F.pad(t, (1, 1, 1, 1), mode="circular"), 3, stride=1) * 9
     return F.avg_pool2d(t, 3, stride=1, padding=1, count_include_pad=True) * 9
 
 
@@ -90,16 +92,22 @@ def step(model, x, g, phys, fire_rate=None):
     x = x * (pre_life & life_mask(x)).to(x.dtype)
     with torch.no_grad():
         alive = alive_cells(x)
-        af = alive.to(x.dtype)
-        died = (was_alive & ~alive).to(x.dtype)
-        V = x[:, V_CH : V_CH + 1] * phys.v_decay
-        V = V + phys.v_gain * box3(died) / 8
-        nb_v, nb_n = box3(V * af), box3(af)
-        V = V + phys.v_diffuse * (nb_v / nb_n.clamp(min=1) - V)
-        V = (V * af).clamp(0, phys.v_max)
+        V = update_potential(x, was_alive, alive, phys)
         g = inherit(g, was_alive, alive, phys.kappa)
     x = torch.cat([x[:, :V_CH], V, x[:, V_CH + 1 :]], 1)
     return x, g
+
+
+def update_potential(x, was_alive, alive, phys):
+    """Yara potansiyeli: söner, ölen komşu oranıyla artar, canlı doku içinde yayılır. (B, 1, H, W)."""
+    c = getattr(phys, "torus", False)  # evo.Physics sarmal değil
+    af = alive.to(x.dtype)
+    died = (was_alive & ~alive).to(x.dtype)
+    V = x[:, V_CH : V_CH + 1] * phys.v_decay
+    V = V + phys.v_gain * box3(died, c) / 8
+    nb_v, nb_n = box3(V * af, c), box3(af, c)
+    V = V + phys.v_diffuse * (nb_v / nb_n.clamp(min=1) - V)
+    return (V * af).clamp(0, phys.v_max)
 
 
 def inherit(g, was_alive, alive, kappa):
@@ -123,9 +131,10 @@ def wound(x, removed, phys):
     return x
 
 
-def mutate(g, x, mu, gen=None, smooth=2):
-    """Potansiyel yüksek olan yerde genom mutasyonu: g += mu * V * xi (uzayca düzgün gürültü)."""
-    V = x[:, V_CH : V_CH + 1]
+def mutate(g, x, mu, gen=None, smooth=2, base=0.0):
+    """Potansiyel yüksek olan yerde genom mutasyonu: g += mu * (V + base) * xi (uzayca düzgün gürültü).
+    base: yaradan bağımsız taban mutasyon (yara olmadan da yavaş varyasyon)."""
+    V = x[:, V_CH : V_CH + 1] + base
     if mu <= 0 or V.max() <= 0:
         return g
     xi = torch.randn(g.shape, generator=gen, device=g.device) if gen is not None else torch.randn_like(g)

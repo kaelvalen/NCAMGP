@@ -1,0 +1,50 @@
+name: life2
+seed: 0
+grid: 64
+model:
+  n_hidden: 12
+  n_genome: 32
+  hidden_dim: 128
+  perception: sobel_lap
+  fire_rate: 0.5
+physics:
+  torus: true
+pool_size: 1024
+r0:
+- 0.2
+- 1.0
+reseed_every: 4
+aging:
+  start: 1500
+  every: 20
+  chunk: 64
+  steps: 220
+  oldest_frac: 0.5
+batch_size: 8
+steps:
+- 64
+- 96
+homeo_k: 16
+lr: 0.002
+lr_drop_iter: 3000
+lr_drop: 0.1
+iterations: 10000
+checkpoint_segment: 16
+A_min: 40
+A_max: 400
+e_min: 0.2
+min_viable: 10
+weights: {}
+damage:
+  start_iter: 1000
+  n_damaged: 2
+  circle_r:
+  - 0.1
+  - 0.3
+  keep_frac:
+  - 0.3
+  - 0.8
+log_every: 50
+print_every: 500
+snapshot_every: 1000
+out_dir: runs

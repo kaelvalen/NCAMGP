@@ -39,6 +39,9 @@ class WorldParams:
     min_cut_area: int = 80  # bundan küçük organizma kesilmez
     track_every: int = 10
     min_org_area: int = 20
+    # True: min_org_area altındaki parçalar (tomurcuk, küçülen beden) da kimlik taşır, soy kopmaz;
+    # sayımlar ve istatistikler yine yalnız min_org_area üstü bireyler (live_orgs) üzerinden
+    track_propagules: bool = False
 
 
 @dataclass
@@ -202,30 +205,27 @@ class World:
         lab, n = self.segment(a)
         sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1)) if n else []
         self.planted = [q for q in self.planted if self.t - q[2] < p.seed_grace]
-        if n:  # yaşayamayacak kadar küçük döküntüyü temizle (koruma süresindeki tohumlar hariç)
-            small_ids = set((1 + np.nonzero(np.asarray(sizes) < p.min_viable)[0]).tolist())
-            small_ids -= {int(lab[y, x]) for y, x, _ in self.planted}
-            small = np.isin(lab, list(small_ids))
-            if small.any():
-                m = torch.from_numpy(small).to(self.dev)
-                for t in (self.x, self.g, self.E, self.tag):
-                    t[0, :, m] = 0
-                lab[small] = 0
+        if n:
+            self.clean_small(lab, sizes)
         prev_lab, prev_map = self.labels, self.label_to_id
         new_map, claimed = {}, {}
         g = self.g[0].cpu().numpy()
         order = np.argsort(-np.asarray(sizes)) if n else []
         for k in order:
             l = k + 1
-            if sizes[k] < p.min_org_area:
+            if sizes[k] < p.min_org_area and not p.track_propagules:
                 continue
             m = lab == l
+            if not m.any():  # clean_small sildi (sizes temizlikten önce hesaplandı)
+                continue
             ov = prev_lab[m]
             ov = ov[ov > 0]
             parent_id = None
             if ov.size:
                 vals, cnt = np.unique(ov, return_counts=True)
                 parent_id = prev_map.get(int(vals[np.argmax(cnt)]))
+            if parent_id is None and p.track_propagules:
+                parent_id = self.lineage_parent(m)
             if parent_id is not None and parent_id not in claimed:
                 oid = parent_id  # en büyük parça kimliği korur
                 claimed[oid] = True
@@ -258,8 +258,27 @@ class World:
         self.labels, self.label_to_id = lab, new_map
         self.record()
 
+    def clean_small(self, lab, sizes):
+        """Yaşayamayacak kadar küçük döküntüyü temizle (koruma süresindeki tohumlar hariç). lab yerinde güncellenir."""
+        small_ids = set((1 + np.nonzero(np.asarray(sizes) < self.p.min_viable)[0]).tolist())
+        small_ids -= {int(lab[y, x]) for y, x, _ in self.planted}
+        small = np.isin(lab, list(small_ids))
+        if small.any():
+            m = torch.from_numpy(small).to(self.dev)
+            for t in (self.x, self.g, self.E, self.tag):
+                t[0, :, m] = 0
+            lab[small] = 0
+
+    def lineage_parent(self, m):
+        """Konumsal örtüşmesi olmayan bileşenin ebeveyni (alt sınıf kancası); yoksa None."""
+        return None
+
+    def live_orgs(self):
+        """Sayılan canlı bireyler: izlenen eşik altı parçalar (track_propagules) hariç."""
+        return [o for o in self.orgs.values() if o.alive and o.area >= self.p.min_org_area]
+
     def record(self):
-        live = [o for o in self.orgs.values() if o.alive]
+        live = self.live_orgs()
         gs = np.array([o.genome for o in live]) if live else np.zeros((0, self.model.n_genome))
         div = float(np.mean(np.linalg.norm(gs[:, None] - gs[None], axis=-1))) if len(gs) > 1 else 0.0
         gm = gs.mean(0) if len(gs) else np.zeros(self.model.n_genome)
@@ -293,11 +312,9 @@ class World:
         """comp (H, W) bool organizma maskesi; centroid'den geçen doğru boyunca keser, bandı siler,
         iki parçayı normal yönünde organizma boyunun yarısı kadar uzaklaştırır. Gidecek yer doluysa
         o hücreler ezilir (kaybolur)."""
-        s = self.size
-        yy, xx = np.mgrid[0:s, 0:s]
-        cy, cx = np.argwhere(comp).mean(0)
+        ry, rx = self.rel_coords(comp)
         ny, nx = math.sin(angle), math.cos(angle)
-        proj = (xx - cx) * nx + (yy - cy) * ny
+        proj = rx * nx + ry * ny
         cut_band = comp & (np.abs(proj) < band)
         side_a, side_b = comp & (proj >= band), comp & (proj <= -band)
         length = proj[comp].max() - proj[comp].min()
@@ -314,12 +331,23 @@ class World:
         for side, sign in ((side_a, 1), (side_b, -1)):
             self.move(side, round(sign * ny * d), round(sign * nx * d))
 
+    def rel_coords(self, comp):
+        """Her hücrenin comp merkezine göre (dy, dx) konumu, (H, W) dizileri."""
+        s = self.size
+        yy, xx = np.mgrid[0:s, 0:s]
+        cy, cx = np.argwhere(comp).mean(0)
+        return yy - cy, xx - cx
+
+    def wrap_dst(self, dst):
+        """Taşınan hücrelerin hedefi (kenarlı dünyada olduğu gibi; dışarı düşenler ezilir)."""
+        return dst
+
     def move(self, mask, dy, dx):
         s = self.size
         src = np.argwhere(mask)
         if not len(src):
             return
-        dst = src + [dy, dx]
+        dst = self.wrap_dst(src + [dy, dx])
         ok = (dst[:, 0] >= 0) & (dst[:, 0] < s) & (dst[:, 1] >= 0) & (dst[:, 1] < s)
         sy, sx = torch.from_numpy(src[:, 0]).to(self.dev), torch.from_numpy(src[:, 1]).to(self.dev)
         fields = (self.x, self.g, self.E, self.tag)
