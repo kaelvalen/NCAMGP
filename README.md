@@ -114,6 +114,23 @@ kurucunun ötesine geçen bir yenilik henüz kanıtlanmadı. Ayrıntılar: `docs
 (cd experiments && uv run python e5_fitness.py confirm --reps 24 --top 5)  # kesin test
 ```
 
+## Yaşayan ekosistem demosu
+
+```bash
+uv run python experiments/y_run.py --cond mu1 --seed 0 --name life2d --save_state 3000 100000  # demo durumları
+uv run python experiments/y_run.py --cond mu0 --seed 0 --name life2d --save_state 100000
+uv run python export/export_life.py   # demo/life_models.js, demo/life_states.js
+xdg-open demo/life.html               # sunucu gerekmez; #cpu kuralı işlemcide, #selftest GPU/CPU farkını yazar
+```
+
+- `demo/life.js` — `nca/life.py` + `nca/life_world.py` fiziğinin JS kopyası (sarmal dünya, kütle korunumlu
+  taşınım, kimlik bariyeri, yeme, yara potansiyeli, mutasyon, soy izleme). Python ile adım, korunum (2000 adım)
+  ve izleme paritesi: `tests/test_life_js_parity.py`. Bilinçli farklar: otomatik dış kesme yok, kullanıcı
+  kesme/silmesinde besin aynı hücrede toprağa döner, mutasyon gürültüsü önceden üretilmiş gaussian tablosundan.
+- `demo/life_gpu.js` — kural WebGL2'de (GPU ile CPU farkı ~2e-6); GPU yoksa ya da bağlam kaybolursa JS'te.
+- `demo/life_app.js` — başlangıç seçimi (ata, evrimleşmiş, mutasyonsuz), görünümler (renk, soy, enerji, besin),
+  araçlar (izle, kes, sil, tohum), canlı grafik ve izlenen canlının paneli.
+
 ## Sonuçlar (çekirdek katman)
 
 Güncel tablolar ve şekiller: `analysis/summary.md`, `analysis/figures/`. Tohum 3, model başına
