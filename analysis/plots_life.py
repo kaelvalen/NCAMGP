@@ -102,6 +102,25 @@ def perm_test(a, b):
     return hits / tot
 
 
+def perm_test_strata(a, sa, b, sb):
+    """Eşleşik tasarım için kesin iki yönlü permütasyon: etiketler yalnız aynı tabaka (kaynak tohum) içinde
+    değiş tokuş edilir; her tabakada a'ya düşen sayı korunur. sa, sb: a ve b'nin tabaka etiketleri."""
+    from itertools import combinations, product
+    x = np.concatenate([a, b]).astype(float)
+    st = np.concatenate([sa, sb])
+    isa = np.r_[np.ones(len(a), bool), np.zeros(len(b), bool)]
+    obs = abs(x[isa].mean() - x[~isa].mean())
+    groups = [(np.flatnonzero(st == k), int(isa[st == k].sum())) for k in np.unique(st)]
+    hits = tot = 0
+    for pick in product(*[combinations(idx, n) for idx, n in groups]):
+        m = np.zeros(len(x), bool)
+        for c in pick:
+            m[list(c)] = True
+        hits += abs(x[m].mean() - x[~m].mean()) >= obs - 1e-12
+        tot += 1
+    return hits / tot
+
+
 GARDEN = [("mean_area", "beden (hücre)", True), ("speed", "hız (hücre / adım)", False),
           ("fis_pc", "bölünme / birey / 1000 adım", False), ("R", "ortalama besin R", False)]
 GROUP_COLOR = {"ata": "#52514e", "evrim": "#2a78d6", "rastgele": "#eb6834"}
@@ -134,9 +153,13 @@ def fig_garden():
         v = g[g.group == grp]
         print(f"{grp} | {len(v)} | {ext[ext.group == grp].extinct.mean():.2f} | "
               + " | ".join(f"{v[c].mean():.3g} ± {v[c].std():.2g}" for c, _, _ in GARDEN))
+    src = d.groupby("gid").src.first()
     for c, l, _ in GARDEN:
-        e, r = g[g.group == "evrim"][c].dropna().values, g[g.group == "rastgele"][c].dropna().values
-        print(f"evrim - rastgele, {l}: p = {perm_test(e, r):.4f} (n = {len(e)}, {len(r)})")
+        e, r = g[g.group == "evrim"].dropna(subset=[c]), g[g.group == "rastgele"].dropna(subset=[c])
+        # rastgele genomlar kaynak evrim genomunun normuyla eşleşik: asıl test tabaka içi
+        ps = perm_test_strata(e[c].values, src[e.gid].values, r[c].values, src[r.gid].values)
+        print(f"evrim - rastgele, {l}: tabaka içi p = {ps:.4f}, havuzlanmış p = {perm_test(e[c].values, r[c].values):.4f} "
+              f"(n = {len(e)}, {len(r)})")
 
 
 def fig_snapshots(name, seed=0, steps=(5000, 50000, 100000)):

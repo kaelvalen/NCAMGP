@@ -333,5 +333,5 @@ etki genomun büyüklüğünden gelir ve "seçilim" yorumu zayıflar.
 
 **Y5 sonucu (27 Kasım).** Beklenti tuttu. Evrim genomları mutasyonsuz taze dünyada da büyük (1110 ± 720 hücre),
 yavaş (0,0035) ve besini düşük tutan (R 0,048) bedenler üretiyor. Aynı normdaki rastgele genomlar küçük ve hızlı
-kalıyor (74 hücre, 0,126, R 0,80) ya da tükeniyor. Evrim ile rastgele arası: beden ve hız p = 0,006, R p = 0,003
-(kesin permütasyon, 4'e karşı 7 genom). Ayrıntılar `analysis/summary_life_life2l.md`.
+kalıyor (74 hücre, 0,126, R 0,80) ya da tükeniyor. Evrim ile rastgele arası, kaynak içi kesin permütasyon (eşleşik tasarım, en küçük ulaşılabilir p 0,019):
+beden ve R p = 0,019 (her kaynakta tam ayrışma), hız p = 0,037. Ayrıntılar `analysis/summary_life_life2l.md`.
