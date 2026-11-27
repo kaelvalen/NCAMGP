@@ -12,6 +12,8 @@ __pycache__/
 *.log
 *.out
 *.synctex.gz
+*.fdb_latexmk
+*.fls
 
 # yeniden üretilebilir: targets/creature_space.py bankayı yeniden kurar
 runs/ancestor_bank_*.npz
