@@ -317,3 +317,21 @@ Kullanıcı kararı: soy ağacı analizi, ardından Plan 2.
 kosinüs 0,75–0,84). Price ayrıştırmasında kaymanın %60–68'i birey düzeyi seçilimden, kalanı aynı yönde
 beden içi değişimden geliyor. Düzeltilmiş ölçülerle evrimleşen bedenler kişi başı 4,7 kat seyrek bölünüyor
 ve 1,7 kat uzun yaşıyor (life2'deki 5,7 kat izleme hatasıydı). Ayrıntılar `analysis/summary_life_life2l.md`.
+
+### Y5 ortak bahçe: koşu öncesi beklenti (27 Kasım)
+
+Düzen: 128² sarmal dünya, 6 kurucu aynı genomla, mutasyon ve kesme yok, 15000 adım, ölçüm son 5000 adım,
+genom başına 3 tekrar. Gruplar: ata (g = 0), 4 evrim genomu (life2l mu1 son ortalama), 8 rastgele (aynı norm).
+Evrimdeki dünyadan farklar (bilinçli): daha küçük alan, daha az kurucu, tek genotip (genotipler arası rekabet
+yok), mutasyonsuz. Ufuk: mu0 koşularında nüfus ~20k adımda platoya yakın; 15k'da tam denge olmayabilir, pencere
+içi eğilim raporlanır. 1000 adımlık sınamada ~20 ms/adım (6 süreç), tam koşu ~35–50 dk.
+
+Beklenti: evrim genomları ataya göre daha büyük beden (≥ 2 kat), daha yavaş, kişi başı daha seyrek bölünme ve
+daha düşük R üretir (kalıtsal etki). Aynı normdaki rastgele genomların çoğu bunu üretmez: daha hızlı ve küçük
+kalır ya da tükenir (etki yönden gelir, büyüklükten değil). Rastgele genomlar da evrim gibi büyük ve yavaşsa
+etki genomun büyüklüğünden gelir ve "seçilim" yorumu zayıflar.
+
+**Y5 sonucu (27 Kasım).** Beklenti tuttu. Evrim genomları mutasyonsuz taze dünyada da büyük (1110 ± 720 hücre),
+yavaş (0,0035) ve besini düşük tutan (R 0,048) bedenler üretiyor. Aynı normdaki rastgele genomlar küçük ve hızlı
+kalıyor (74 hücre, 0,126, R 0,80) ya da tükeniyor. Evrim ile rastgele arası: beden ve hız p = 0,006, R p = 0,003
+(kesin permütasyon, 4'e karşı 7 genom). Ayrıntılar `analysis/summary_life_life2l.md`.
