@@ -215,7 +215,7 @@ bağlantı eklenir.
 ## Takvim ve karar noktası
 
 Uygulama planı (karar noktasına kadar): `docs/yasayan-ekosistem/plan-1-fizik.md`.
-Plan 2 (Y2–Y5, demo, makale) karar noktasından sonra yazılır.
+Plan 2 (Y2–Y5, demo, makale): `docs/yasayan-ekosistem/plan-2-deney-demo-makale.md`.
 
 | Hafta | Bitiş | İş |
 |---|---|---|

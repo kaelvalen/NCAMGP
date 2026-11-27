@@ -39,6 +39,9 @@ class WorldParams:
     min_cut_area: int = 80  # bundan küçük organizma kesilmez
     track_every: int = 10
     min_org_area: int = 20
+    # True: min_org_area altındaki parçalar (tomurcuk, küçülen beden) da kimlik taşır, soy kopmaz;
+    # sayımlar ve istatistikler yine yalnız min_org_area üstü bireyler (live_orgs) üzerinden
+    track_propagules: bool = False
 
 
 @dataclass
@@ -210,15 +213,19 @@ class World:
         order = np.argsort(-np.asarray(sizes)) if n else []
         for k in order:
             l = k + 1
-            if sizes[k] < p.min_org_area:
+            if sizes[k] < p.min_org_area and not p.track_propagules:
                 continue
             m = lab == l
+            if not m.any():  # clean_small sildi (sizes temizlikten önce hesaplandı)
+                continue
             ov = prev_lab[m]
             ov = ov[ov > 0]
             parent_id = None
             if ov.size:
                 vals, cnt = np.unique(ov, return_counts=True)
                 parent_id = prev_map.get(int(vals[np.argmax(cnt)]))
+            if parent_id is None and p.track_propagules:
+                parent_id = self.lineage_parent(m)
             if parent_id is not None and parent_id not in claimed:
                 oid = parent_id  # en büyük parça kimliği korur
                 claimed[oid] = True
@@ -262,8 +269,16 @@ class World:
                 t[0, :, m] = 0
             lab[small] = 0
 
+    def lineage_parent(self, m):
+        """Konumsal örtüşmesi olmayan bileşenin ebeveyni (alt sınıf kancası); yoksa None."""
+        return None
+
+    def live_orgs(self):
+        """Sayılan canlı bireyler: izlenen eşik altı parçalar (track_propagules) hariç."""
+        return [o for o in self.orgs.values() if o.alive and o.area >= self.p.min_org_area]
+
     def record(self):
-        live = [o for o in self.orgs.values() if o.alive]
+        live = self.live_orgs()
         gs = np.array([o.genome for o in live]) if live else np.zeros((0, self.model.n_genome))
         div = float(np.mean(np.linalg.norm(gs[:, None] - gs[None], axis=-1))) if len(gs) > 1 else 0.0
         gm = gs.mean(0) if len(gs) else np.zeros(self.model.n_genome)

@@ -30,6 +30,7 @@ class LifeParams(WorldParams):
     cause_window: int = 50  # bölünme nedenini belirlerken geriye bakılan adım
     attack_frac_min: float = 0.05  # hücre kütlesinin bu oranından az kemirme saldırı sayılmaz
     mu_base: float = 0.0  # yaradan bağımsız taban mutasyon (V'ye eklenir; evo.mutate base)
+    track_propagules: bool = True  # tomurcuklar kimlik taşır: doğum bölünme anında, soy kopmaz
 
 
 def label_wrap(mask, torus=True):
@@ -69,6 +70,7 @@ class LifeWorld(World):
         self.last_attacked = {}  # etiket anahtarı -> son yenildiği adım
         self.last_cut = {}  # organizma kimliği -> son kesildiği adım
         self.org_tag = {}  # canlı organizma -> etiket anahtarı (önceki kayıttan)
+        self.tag_origin = {}  # bölünmede yeni etiket alan parça: yeni anahtar -> ebeveyn anahtarı
         self._ev_mark = 0
         self._prev_cent = {}
         self.seed_tags = []  # (etiket anahtarı, ekildiği adım): koruma süresi
@@ -167,7 +169,9 @@ class LifeWorld(World):
         for tv, comps in by_tag.items():
             comps.sort(key=lambda c: -c[0])
             for _, m in comps[1:]:
-                self.tag[0, 0][torch.from_numpy(m).to(self.dev)] = self.new_tag(like=tv / 1000)
+                mt = torch.from_numpy(m).to(self.dev)
+                self.tag[0, 0][mt] = self.new_tag(like=tv / 1000)
+                self.tag_origin[self.tag_key(self.tag[0, 0][mt][0])] = tv
 
     def plant(self, gv, pos=None, tries=50, group=None):
         super().plant(gv, pos, tries, group)
@@ -218,12 +222,21 @@ class LifeWorld(World):
     def track(self):
         self._ev_mark = len(self.events)
         self._prev_cent = {oid: o.centroid for oid, o in self.orgs.items() if o.alive}
+        self._tags = np.round(self.tag[0, 0].cpu().numpy() * 1000).astype(np.int64)
+        self._tag_owner = {k: oid for oid, k in self.org_tag.items()}
         super().track()
+
+    def lineage_parent(self, m):
+        """Konumsal örtüşme yoksa (10 adımda boyu kadar kayan küçük beden, yeni filiz) soy kalıtsal
+        kimlik etiketinden. shortcut: ~9000 anahtar, nadir çakışmada yanlış ebeveyn seçilebilir."""
+        k = int(self._tags[m][0])
+        own = self._tag_owner.get(k)  # aynı birey kaydı
+        return own if own is not None else self._tag_owner.get(self.tag_origin.get(k))  # yeni kopan parça
 
     def record(self):
         super().record()
         h = self.history[-1]
-        live = [o for o in self.orgs.values() if o.alive]
+        live = self.live_orgs()
         # bölünme nedenleri: önceki kayıttaki ebeveyn etiketine göre
         counts = {"self": 0, "attack": 0, "disturbance": 0}
         w = self.p.cause_window

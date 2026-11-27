@@ -16,6 +16,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
+import numpy as np
 import torch
 import yaml
 
@@ -51,10 +52,14 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     (out / "config.yaml").write_text(yaml.safe_dump({**cfg, "cond": args.cond, "seed": args.seed}, allow_unicode=True))
     w = LifeWorld(model, phys, size=cfg["size"], n_seeds=cfg["n_seeds"], params=LifeParams(**wp), seed=args.seed)
+    torch.manual_seed(args.seed)  # mutasyon gürültüsü genel üreteçten çekiliyor: koşu tekrarlanabilir olsun
     t0 = time.time()
+    dump = []  # Price ayrıştırması için: (t, id, alan, genom) her dump_every adımda, eşik altı parçalar dahil
     with torch.no_grad():
         while w.t < cfg["steps"] and not w.extinct:
             w.step()
+            if w.t % cfg.get("dump_every", 1000) == 0:
+                dump += [(w.t, o.id, o.area, *o.genome) for o in w.orgs.values() if o.alive and o.genome]
             if w.t % cfg["snapshot_every"] == 0:
                 save_grid(out / f"snap_{w.t:06d}.png", list(to_uint8(render(w.x))), scale=2)
                 h = w.history[-1]
@@ -62,6 +67,7 @@ def main():
                       f"kesme={h['cut_rate']:.5f} toplam_birey={len(w.orgs)} {time.time() - t0:.0f}s", flush=True)
     write_csv(out / "history.csv", w.history)
     write_csv(out / "events.csv", [dict(zip(["t", "type", "id", "parent", "cause"], e)) for e in w.events])
+    np.save(out / "lineage.npy", np.array(dump, dtype=np.float32).reshape(len(dump), -1))
     (out / "orgs.json").write_text(json.dumps([asdict(o) for o in w.orgs.values()], default=float))
     (out / "summary.yaml").write_text(yaml.safe_dump({
         "t": w.t, "extinct": bool(w.extinct), "n_orgs_total": len(w.orgs), "sec": round(time.time() - t0),
