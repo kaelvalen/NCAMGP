@@ -6,6 +6,7 @@ Koşullar: mu1 (config'teki μ), mu0 (μ = 0, kalıtsal varyasyonsuz kontrol).
 Tükenmede erken biter (summary.yaml: extinct).
 
 Kullanım: uv run python experiments/y_run.py --cond mu1 --seed 0 [--config configs/life_world.yaml --set steps=2000]
+          [--save_state 3000 100000]  (demo durumları: state_<t>.npz {x, g, R float16; tag float32; t})
 """
 
 import argparse
@@ -41,6 +42,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--name", default="lifeworld")
     ap.add_argument("--set", nargs="*", default=[])
+    ap.add_argument("--save_state", type=int, nargs="*", default=[], help="bu adımlarda state_<t>.npz (demo)")
     args = ap.parse_args()
     cfg = load_config(ROOT / args.config, args.set)
     model, phys = load_life(ROOT / "runs" / cfg["run"])
@@ -60,6 +62,10 @@ def main():
             w.step()
             if w.t % cfg.get("dump_every", 1000) == 0:
                 dump += [(w.t, o.id, o.area, *o.genome) for o in w.orgs.values() if o.alive and o.genome]
+            if w.t in args.save_state:  # yalnız okur: RNG akışına dokunmaz, koşu aynı kalır
+                np.savez_compressed(out / f"state_{w.t:06d}.npz", t=w.t, tag=w.tag[0, 0].cpu().numpy(),
+                                    **{k: getattr(w, k)[0].cpu().numpy().astype(np.float16) for k in ("x", "g")},
+                                    R=w.R[0, 0].cpu().numpy().astype(np.float16))
             if w.t % cfg["snapshot_every"] == 0:
                 save_grid(out / f"snap_{w.t:06d}.png", list(to_uint8(render(w.x))), scale=2)
                 h = w.history[-1]
