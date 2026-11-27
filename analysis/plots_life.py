@@ -72,6 +72,38 @@ def late(r, lo=90000):
             "fis": w.fission_self.mean()}  # load() zaten 1000 adım başına çevirdi
 
 
+def acf_first_min(x):
+    """Doğrusal eğilimi çıkarılmış serinin otokorelasyonunda ilk negatif lobun minimumu: (gecikme, değer, 2/√n)."""
+    x = np.asarray(x, float)
+    n = len(x)
+    t = np.arange(n)
+    r = x - np.polyval(np.polyfit(t, x, 1), t)
+    acf = np.correlate(r, r, "full")[n - 1 :] / (r @ r)
+    neg = np.flatnonzero(acf[: n // 4] < 0)
+    if not len(neg):
+        return 0, 0.0, 2 / np.sqrt(n)
+    end = np.flatnonzero(acf[neg[0] : n // 4] >= 0)  # ilk negatif lob; içindeki gürültü kıpırtıları sayılmaz
+    lobe = acf[neg[0] : neg[0] + (end[0] if len(end) else n // 4)]
+    k = neg[0] + int(np.argmin(lobe))
+    return k, float(acf[k]), 2 / np.sqrt(n)
+
+
+def y3_lines(runs, lo=50000):
+    """Y3: kesmeler söndükten sonra n_org ve pred_share salınımı (tohum başına satır)."""
+    lines = ["", f"Y3: t > {lo} için eğilimden arındırılmış otokorelasyonun ilk negatif minimumu (gecikme adım,",
+             "değer). |değer| < 2/√n ise salınım yok.\n",
+             "| koşul | tohum | birey: gecikme, ACF | avcılık: gecikme, ACF | 2/√n |", "|---|---|---|---|---|"]
+    for r in sorted(runs, key=lambda r: (r["cond"], r["seed"])):
+        h = r["h"][r["h"]["t"] > lo]
+        dt = r["s"]["params"]["track_every"]
+        cells = []
+        for col in ("n_org", "pred_share"):
+            k, v, thr = acf_first_min(h[col].values)
+            cells.append(f"{k * dt}, {v:.2f}" if abs(v) >= thr else f"salınım yok ({v:.2f})")
+        lines.append(f"| {r['cond']} | {r['seed']} | {cells[0]} | {cells[1]} | {thr:.3f} |")
+    return lines
+
+
 def fig_price(name, anneal, suffix=""):
     """Tohum başına birikimli Price terimleri (ortak yön u üzerinde): seçilim ve aktarım."""
     f = ROOT / "analysis" / f"price_{name}.csv"
@@ -114,8 +146,10 @@ def summary(runs, anneal, suffix=""):
         m = pd.DataFrame([late(r) for r in rs]).mean()
         lines.append(f"| {cond} | {m.n_org:.0f} | {m.area:.0f} | {m["cov"]:.2f} | {m.R:.3f} | {m.age:.0f} | {m.gen:.1f} | "
                      f"{m.fis:.1f} | {m.fis / m.n_org:.3f} |")
+    lines += y3_lines(runs, anneal)
     out = ROOT / "analysis" / f"summary_life{suffix}.md"
-    out.write_text("\n".join(lines) + "\n")
+    keep = out.read_text().partition("\n## Yorum")[1:] if out.exists() else ("", "")  # elle yazılan yorum korunur
+    out.write_text("\n".join(lines) + "\n" + "".join(keep))
     print(f"özet: {out}")
 
 
