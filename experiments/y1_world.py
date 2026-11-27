@@ -41,7 +41,7 @@ def main():
         for s in range(1, args.steps + 1):
             w.step()
             if s % args.every == 0 or w.extinct:
-                live = [o for o in w.orgs.values() if o.alive]
+                live = w.live_orgs()
                 a = w.x[0, M_CH] > 0.1
                 rows.append({"r0": r0, "t": s, "n_org": len(live),
                              "mean_area": round(sum(o.area for o in live) / max(len(live), 1), 1),

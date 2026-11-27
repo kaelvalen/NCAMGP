@@ -33,6 +33,30 @@ def test_self_split_gets_new_tag_and_cause_self():
     assert w.history[-1]["fission_self"] == 1
 
 
+def test_bud_keeps_lineage_and_is_not_counted():
+    """Eşik altı tomurcuk ebeveynli doğar ve izlenir ama sayılmaz; örtüşmesiz kaysa da soyu etiketten bulunur."""
+    w = empty_world()
+    w.x[0, M_CH, 10:16, 4:20] = 1.0
+    w.x[0, E_CH, 10:16, 4:20] = 1.0
+    w.tag[0, 0, 10:16, 4:20] = 3.0
+    w.track()
+    w.x[0, :, 10:16, 15:17] = 0  # 6x3 = 18 hücrelik tomurcuk koptu (< min_org_area 20)
+    w.t += w.p.track_every
+    w.retag_splits()
+    w.track()
+    bud = [o for o in w.orgs.values() if o.alive and o.area == 18]
+    assert len(bud) == 1 and bud[0].parent == 0
+    assert w.history[-1]["n_org"] == 1
+    # tomurcuk 10 adımda boyundan fazla kaydı: konumsal örtüşme yok, soy etiketten
+    blk = w.x[0, :, 10:16, 17:20].clone(), w.tag[0, 0, 10:16, 17:20].clone()
+    w.x[0, :, 10:16, 17:20] = 0
+    w.tag[0, 0, 10:16, 17:20] = 0
+    w.x[0, :, 20:26, 17:20], w.tag[0, 0, 20:26, 17:20] = blk
+    w.t += w.p.track_every
+    w.track()
+    assert bud[0].alive and bud[0].area == 18
+
+
 def test_cut_rate_anneals_to_zero():
     w = empty_world(cut_rate=0.002, anneal_steps=1000)
     assert w.current_cut_rate() == 0.002
