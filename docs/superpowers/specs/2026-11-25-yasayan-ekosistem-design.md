@@ -311,4 +311,9 @@ Makale için bu temiz ve tekrarlanmış bir sonuç: evrim kendiliğinden ortaya 
 evrim gözleniyor ve R* ilkesi geçerli. Ancak "yaşayan ekosistem" hedefi açısından geç dönem
 durağan (hız 0,007). Açık sorular: seçilim birey düzeyinde mi hücre düzeyinde mi işliyor
 (mutasyon somatik), ve bozulma rejimi (kesmeler) söndürülmeseydi dinamik bir denge kalır mıydı?
-Kullanıcı kararı bekleniyor.
+Kullanıcı kararı: soy ağacı analizi, ardından Plan 2.
+
+**Soy düzeltmeli tekrar (life2l, 27 Kasım).** Dört yeni mu1 koşusu aynı yöne evrildi (life2 ortak yönüyle
+kosinüs 0,75–0,84). Price ayrıştırmasında kaymanın %60–68'i birey düzeyi seçilimden, kalanı aynı yönde
+beden içi değişimden geliyor. Düzeltilmiş ölçülerle evrimleşen bedenler kişi başı 4,7 kat seyrek bölünüyor
+ve 1,7 kat uzun yaşıyor (life2'deki 5,7 kat izleme hatasıydı). Ayrıntılar `analysis/summary_life_life2l.md`.

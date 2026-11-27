@@ -34,7 +34,8 @@ def load(name):
         cond, seed = d.name[len(name) + 1 :].rsplit("_s", 1)
         dt = s["params"]["track_every"]
         h["fission_self"] = h["fission_self"] * 1000 / dt  # pencere başına sayı -> 1000 adım başına
-        runs.append({"cond": cond, "seed": int(seed), "h": h, "s": s})
+        size = yaml.safe_load((d / "config.yaml").read_text())["size"]
+        runs.append({"cond": cond, "seed": int(seed), "h": h, "s": s, "size": size})
     return runs
 
 
@@ -46,7 +47,7 @@ def fig_timeseries(runs, anneal, suffix=""):
             if not rs:
                 continue
             df = pd.concat(rs, axis=1)
-            mean, se = df.mean(1), df.std(1).fillna(0) / np.sqrt(df.notna().sum(1))
+            mean, se = df.mean(axis=1), df.std(axis=1).fillna(0) / np.sqrt(df.notna().sum(axis=1))
             ax.plot(df.index, mean, color=color, lw=1.4, label=f"{COND_LABEL[cond]} (n = {len(rs)})")
             ax.fill_between(df.index, mean - se, mean + se, color=color, alpha=0.2, lw=0)
         ax.axvline(anneal, color=INK2, ls="--", lw=0.8)
@@ -64,6 +65,31 @@ def window(h, lo, hi):
             "self_per_1k": w["fission_self"].mean()}
 
 
+def late(r, lo=90000):
+    w = r["h"][r["h"]["t"] >= lo]
+    return {"n_org": w.n_org.mean(), "area": w.mean_area.mean(), "cov": w.cells.mean() / r["size"] ** 2,
+            "R": w.resource.mean(), "age": w.mean_age.mean(), "gen": w.mean_generation.mean(),
+            "fis": w.fission_self.mean()}  # load() zaten 1000 adım başına çevirdi
+
+
+def fig_price(name, anneal, suffix=""):
+    """Tohum başına birikimli Price terimleri (ortak yön u üzerinde): seçilim ve aktarım."""
+    f = ROOT / "analysis" / f"price_{name}.csv"
+    if not f.exists():
+        return
+    df = pd.read_csv(f)
+    fig, ax = plt.subplots(figsize=(7, 3.2))
+    for col, color, label in [("sel_u", "#2a78d6", "seçilim (birey düzeyi)"), ("tr_u", "#eb6834", "aktarım (beden içi)")]:
+        for k, (seed, d) in enumerate(df.groupby("seed")):
+            ax.plot(d.t, d[col].cumsum(), color=color, lw=1.2, alpha=0.8, label=label if k == 0 else None)
+    ax.axvline(anneal, color=INK2, ls="--", lw=0.8)
+    ax.set_xlabel("adım")
+    ax.set_ylabel("birikimli Δḡ · u")
+    ax.grid(alpha=0.25)
+    ax.legend(frameon=False, fontsize=8)
+    save(fig, "life_price" + suffix)
+
+
 def summary(runs, anneal, suffix=""):
     lines = ["# Yaşayan ekosistem — karar noktası özeti\n",
              f"Erken pencere: ilk 5000 adım (ataya yakın). Geç pencere: kesmeler söndükten (t > {anneal}) sonraki",
@@ -77,6 +103,17 @@ def summary(runs, anneal, suffix=""):
         g = window(h, lo, t_end) if t_end > anneal else {k: float("nan") for k in e}
         lines.append(f"| {r['cond']} | {r['seed']} | {t_end} | {'evet' if r['s']['extinct'] else 'hayır'} | "
                      + " | ".join(f"{e[k]:.3g} → {g[k]:.3g}" for k in e) + " |")
+    lines += ["", "Geç pencere (t ≥ 90000), koşul başına tohum ortalaması. Bölünme eşik altı tomurcukları da sayar",
+              "(track_propagules); kişi başı = bölünme / birey.\n",
+              "| koşul | birey | beden (hücre) | kapsama | R | yaş (adım) | kuşak | bölünme / 1000 adım | kişi başı |",
+              "|---|---|---|---|---|---|---|---|---|"]
+    for cond in COND:
+        rs = [r for r in runs if r["cond"] == cond]
+        if not rs:
+            continue
+        m = pd.DataFrame([late(r) for r in rs]).mean()
+        lines.append(f"| {cond} | {m.n_org:.0f} | {m.area:.0f} | {m["cov"]:.2f} | {m.R:.3f} | {m.age:.0f} | {m.gen:.1f} | "
+                     f"{m.fis:.1f} | {m.fis / m.n_org:.3f} |")
     out = ROOT / "analysis" / f"summary_life{suffix}.md"
     out.write_text("\n".join(lines) + "\n")
     print(f"özet: {out}")
@@ -93,6 +130,7 @@ def main():
     suffix = "" if args.name == "lifeworld" else f"_{args.name}"  # her deney kendi çıktısına
     fig_timeseries(runs, anneal, suffix)
     summary(runs, anneal, suffix)
+    fig_price(args.name, anneal, suffix)
 
 
 if __name__ == "__main__":
