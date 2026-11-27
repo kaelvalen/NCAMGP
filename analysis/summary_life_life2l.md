@@ -22,6 +22,20 @@ Geç pencere (t ≥ 90000), koşul başına tohum ortalaması. Bölünme eşik a
 | mu1 | 172 | 152 | 0.70 | 0.078 | 32123 | 13.9 | 10.7 | 0.062 |
 | mu0 | 316 | 36 | 0.31 | 0.178 | 18507 | 13.1 | 92.8 | 0.294 |
 
+Y3: t > 50000 için eğilimden arındırılmış otokorelasyonun ilk negatif minimumu (gecikme adım,
+değer). |değer| < 2/√n ise salınım yok.
+
+| koşul | tohum | birey: gecikme, ACF | avcılık: gecikme, ACF | 2/√n |
+|---|---|---|---|---|
+| mu0 | 0 | salınım yok (-0.01) | 2980, -0.13 | 0.028 |
+| mu0 | 1 | salınım yok (-0.00) | salınım yok (-0.03) | 0.028 |
+| mu0 | 2 | salınım yok (-0.00) | 7290, -0.08 | 0.028 |
+| mu0 | 3 | 5730, -0.12 | 4680, -0.17 | 0.028 |
+| mu1 | 0 | 18340, -0.54 | 6810, -0.17 | 0.028 |
+| mu1 | 1 | 6010, -0.40 | salınım yok (-0.00) | 0.028 |
+| mu1 | 2 | 20050, -0.45 | salınım yok (-0.00) | 0.028 |
+| mu1 | 3 | 14670, -0.40 | 5750, -0.23 | 0.028 |
+
 ## Yorum (27 Kasım) — soy düzeltmeli tekrar, 2 koşul × 4 tohum, 100k adım
 
 **Denetimler.** Tükenme 0/8. Ebeveynsiz doğum (t > 0) her koşuda ≤ %0,08 (life2 mu1_s0'da %85'ti).
@@ -44,3 +58,10 @@ ve küçük değil (kaymanın ~1/3'ü). Mutasyon gürültüsü işaretçe simetr
 u yönünde birikmesi beden içi hücre soyları arasında da aynı yöne seçilim olduğunu gösteriyor. İki
 düzey aynı yönde çalışıyor. Kaymanın ~%85'i ilk 50k adımda, dış kesmeler sürerken oluyor (seçilim·u
 1,51 ± 0,10; sonrasında 0,25 ± 0,12).
+
+**Y3 ekolojik dinamik (yukarıdaki tablo).** Düzenli bir av-avcı salınımı yok. mu0'da birey sayısında
+anlamlı bir negatif lob yalnız bir tohumda var. mu1'de birey sayısının ACF'si -0,40…-0,54'e iniyor, ama
+gecikmeler tohumdan tohuma 6000–20000 adım arasında dağınık ve 50k adımlık pencereye en çok 2–3 tur sığıyor.
+Bu, periyodik salınımdan çok yavaş dalgalanmaya (ve 2/√n eşiğinin otokorelasyonlu seride gevşek olmasına)
+uyuyor. Avcılık payındaki lob zayıf (|ACF| ≤ 0,23) ve tutarsız. Sonuç: iki koşul da gürültülü, kararlı bir
+denge etrafında; mu1'deki daha yavaş dalgalanma büyük ve uzun ömürlü bedenlerin daha yavaş nüfus devriyle uyumlu.
