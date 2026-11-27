@@ -88,6 +88,75 @@ def acf_first_min(x):
     return k, float(acf[k]), 2 / np.sqrt(n)
 
 
+def perm_test(a, b):
+    """Ortalama farkı için kesin iki yönlü permütasyon testi (tüm bölüşümler; küçük örnekler için)."""
+    from itertools import combinations
+    x = np.concatenate([a, b]).astype(float)
+    obs = abs(np.mean(a) - np.mean(b))
+    n, k, hits, tot = len(x), len(a), 0, 0
+    for idx in combinations(range(n), k):
+        m = np.zeros(n, bool)
+        m[list(idx)] = True
+        hits += abs(x[m].mean() - x[~m].mean()) >= obs - 1e-12
+        tot += 1
+    return hits / tot
+
+
+GARDEN = [("mean_area", "beden (hücre)", True), ("speed", "hız (hücre / adım)", False),
+          ("fis_pc", "bölünme / birey / 1000 adım", False), ("R", "ortalama besin R", False)]
+GROUP_COLOR = {"ata": "#52514e", "evrim": "#2a78d6", "rastgele": "#eb6834"}
+
+
+def fig_garden():
+    """Y5 ortak bahçe: genom başına (tekrar ortalaması) ölçüler; tükenen tekrarlar ölçüye girmez."""
+    f = ROOT / "experiments/results/y5_garden.csv"
+    if not f.exists():
+        return
+    d = pd.read_csv(f)
+    d["fis_pc"] = d.fission_self / d.n_org.where(d.n_org > 0)
+    alive = d[~d.extinct]
+    g = alive.groupby(["gid", "group"])[[c for c, _, _ in GARDEN]].mean().reset_index()
+    ext = d.groupby(["gid", "group"]).extinct.mean().reset_index()
+    fig, axes = plt.subplots(1, len(GARDEN), figsize=(10, 2.8))
+    for ax, (col, label, log) in zip(axes, GARDEN):
+        for x, (grp, c) in enumerate(GROUP_COLOR.items()):
+            v = g[g.group == grp][col]
+            ax.scatter(np.full(len(v), x) + np.linspace(-0.12, 0.12, len(v)), v, color=c, s=18, zorder=3)
+            ax.hlines(v.mean(), x - 0.25, x + 0.25, color=c, lw=2)
+        ax.set_xticks(range(3), list(GROUP_COLOR))
+        ax.set_title(label, fontsize=9)
+        ax.grid(alpha=0.25, axis="y")
+        if log:
+            ax.set_yscale("log")
+    save(fig, "life_garden")
+    print("grup | genom | tükenen tekrar oranı | " + " | ".join(l for _, l, _ in GARDEN))
+    for grp in GROUP_COLOR:
+        v = g[g.group == grp]
+        print(f"{grp} | {len(v)} | {ext[ext.group == grp].extinct.mean():.2f} | "
+              + " | ".join(f"{v[c].mean():.3g} ± {v[c].std():.2g}" for c, _, _ in GARDEN))
+    for c, l, _ in GARDEN:
+        e, r = g[g.group == "evrim"][c].dropna().values, g[g.group == "rastgele"][c].dropna().values
+        print(f"evrim - rastgele, {l}: p = {perm_test(e, r):.4f} (n = {len(e)}, {len(r)})")
+
+
+def fig_snapshots(name, seed=0, steps=(5000, 50000, 100000)):
+    """mu0 ve mu1 (aynı tohum) dünyasının anlık görüntüleri: 2 x len(steps) ızgara."""
+    fig, axes = plt.subplots(2, len(steps), figsize=(2.4 * len(steps), 5.0))
+    for r, cond in enumerate(("mu0", "mu1")):
+        for c, t in enumerate(steps):
+            f = ROOT / "runs" / f"{name}_{cond}_s{seed}" / f"snap_{t:06d}.png"
+            ax = axes[r, c]
+            ax.imshow(plt.imread(f), interpolation="nearest")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if r == 0:
+                ax.set_title(f"t = {t // 1000}k", fontsize=9)
+            if c == 0:
+                ax.set_ylabel(COND_LABEL[cond], fontsize=9)
+    fig.tight_layout()
+    save(fig, f"life_snapshots_{name}")
+
+
 def y3_lines(runs, lo=50000):
     """Y3: kesmeler söndükten sonra n_org ve pred_share salınımı (tohum başına satır)."""
     lines = ["", f"Y3: t > {lo} için eğilimden arındırılmış otokorelasyonun ilk negatif minimumu (gecikme adım,",
@@ -165,6 +234,8 @@ def main():
     fig_timeseries(runs, anneal, suffix)
     summary(runs, anneal, suffix)
     fig_price(args.name, anneal, suffix)
+    fig_garden()
+    fig_snapshots(args.name)
 
 
 if __name__ == "__main__":
