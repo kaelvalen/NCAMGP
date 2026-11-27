@@ -4,7 +4,7 @@
 \documentclass[conference]{IEEEtran}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[turkish]{babel}
+\usepackage[turkish,shorthands=:!]{babel}  % = etkin olmasın: \includegraphics[width=...] bozulur
 \usepackage{amsmath,graphicx,booktabs,cite}
 \graphicspath{{../analysis/figures/}{../experiments/results/}}
 \newcommand{\fig}[2]{\IfFileExists{../analysis/figures/#1}{\includegraphics[width=#2]{#1}}{\fbox{#1: analysis/plots\_life.py}}}
@@ -38,7 +38,7 @@ $P_s, P_b$ tohumlanmış sabit rastgele izdüşümlerdir ve hiç eğitilmez. Bö
 Fizik elle yazılmıştır ama hiçbir davranışı tetiklemez. Her adımda sırasıyla: (1) kural stokastik ateşleme maskesiyle uygulanır; (2) büyüme enerjiyi kütleye çevirir, hareket kütle başına maliyet öder; (3) \emph{taşınım} kütleyi akış kesirlerine göre dağıtır, $E$ kütleyle, renk, gizli kanallar ve $g$ kütle ağırlıklı taşınır; başka bir bireyin hücresine ya da iki bireyin arasındaki boş hücreye giden pay geri döner, yani bireyler kaynaşmaz; (4) kaynak alımı $\propto m R$ ve bakım $\propto m$; (5) $E \le 0$ ya da canlı komşusu olmayan hücre ölür ve besini $R$'ye döner; (6) yara potansiyeli ölen komşularla artar ve beden içinde yayılır; (7) \emph{yeme}: saldırısı $a$ olan hücre yabancı komşusundan kütle alır, ganimetin $\eta$ payı enerjisine geçer, kurbanın yarasında $V$ yükselir; (8) genom aynı birey içinde homojenleşir ve $g \mathrel{+}= \mu (V + b)\,\xi$ ile mutasyona uğrar ($\mu = 0{,}05$, $b = 0{,}03$). Besin kapalı bir döngüdür: $\sum R + \sum m + \sum E$ korunur (100k adımda göreli kayma $< 10^{-4}$). Dünya sarmaldır (torus).
 
 \subsection{Bireyler ve soy}
-Birey, aynı etiketli hücrelerin sarmal 8-bağlantılı bileşenidir. Aynı etiketin yaşayabilir birden çok bileşeni varsa en büyüğü dışındakiler yeni etiket alır: bu bir \emph{bölünme}dir. Nedeni kaydedilir: dış kesme, saldırı ya da kendiliğinden. Soy konumsal örtüşmeden, örtüşme yoksa kalıtsal etiketten bulunur. 20 hücreden küçük tomurcuklar da kimlik taşır ama sayılmaz. Ebeveynsiz doğumlar koşu başına \%0,08'in altındadır.
+Birey, aynı etiketli hücrelerin sarmal 8-bağlantılı bileşenidir. Aynı etiketin yaşayabilir birden çok bileşeni varsa en büyüğü dışındakiler yeni etiket alır: bu bir \emph{bölünme}dir. Nedeni kaydedilir: dış kesme, saldırı ya da kendiliğinden. Soy konumsal örtüşmeden, örtüşme yoksa kalıtsal etiketten bulunur. 20 hücreden küçük tomurcuklar da kimlik taşır ama sayılmaz. Ebeveynsiz doğumlar koşu başına en çok \%0,08'dir.
 
 \subsection{Ata ön eğitimi: ``en basit canlı''}
 Kural tek bir canlının tek hücreden büyüdüğü küçük sarmal bir arenada, $g = 0$ ile gradyanla eğitilir. Kayıp yalnız canlılık ölçütleridir: toplam kütle $[40, 400]$ aralığında, döküntü yok (bölünmek cezasızdır), enerji pozitif, beden çerçevesinde homeostaz (hareket cezalandırılmaz, ödüllendirilmez de) ve kanal sınırları. Örnek havuzu ve hasar~\cite{mordvintsev2020growing} kullanılır. İlk ata kıtlığı tanımıyordu: dünyada besin bitene kadar büyüyüp her yeri bir halı gibi kapladı. İkinci sürüm (v2) örnek başına rastgele başlangıç besiniyle ($R_0 \in [0{,}2, 1]$) ve havuz yaşlandırmayla (en yaşlı örnekler $\sim$66k adım) uzun ufka göre eğitildi. Kontrol noktası, besin sınırına kadar bölünerek çoğalan ve kapsaması en düşük olan olarak dünya sınamasıyla seçildi. Bu yüzden atanın dünyadaki ilk davranışı bağımsız bir test sayılmaz.
@@ -67,7 +67,7 @@ ortalama beden (hücre) & 36 & 152 \\
 kapsama & 0,31 & 0,70 \\
 ortalama besin $R$ & 0,178 & 0,078 \\
 hız (hücre/adım) & 0,031 & 0,007 \\
-avcılık payı & 0,008 & 0,023 \\
+avcılık payı & 0,008 & 0,022 \\
 bölünme / birey / 1000 adım & 0,294 & 0,062 \\
 ortalama yaş (adım) & 18\,500 & 32\,100 \\
 \bottomrule
@@ -106,7 +106,7 @@ Terimleri bağımsız ilk koşu kümesinin ortak yönüne izdüşürdük. 100k a
 \subsection{Y5: Ortak bahçe}
 Evrimleşmiş genomun etkisi kalıtsal mı, ve yönden mi büyüklükten mi geliyor? Her genomu kendi taze dünyasına koyduk: 128$^2$, aynı genomlu 6 kurucu, mutasyon ve kesme yok, 15k adım, ölçüm son 5k adım, genom başına 3 tekrar. Gruplar: ata ($g = 0$), dört evrim genomu (mu1 tohumlarının son ortalama genomu) ve her evrim genomuyla aynı normda ikişer rastgele yönlü genom.
 
-Evrim genomları bu dünyada da büyük (1110 $\pm$ 720 hücre), yavaş (0,0035 hücre/adım) ve besini düşük tutan ($R$ 0,048) bedenler üretir (Şekil~\ref{fig:garden}). Fenotip kalıtsaldır: rekabet, kesme ve mutasyon olmadan genomdan yeniden doğar. Aynı normdaki rastgele genomlar ise ataya benzer ya da daha küçük ve hızlı kalır (74 hücre, 0,126 hücre/adım, $R$ 0,80); biri üç tekrarında da tükenir. Evrim ile rastgele arasındaki fark beden ve hızda $p = 0{,}006$, besinde $p = 0{,}003$'tür (kesin permütasyon testi, 4'e karşı 7 genom); kişi başı bölünmede anlamlı değildir ($p = 0{,}07$). Yani etki genomun büyüklüğünden değil, seçilen yönden gelir. Bahçede evrim bedenleri evrim dünyasındakinden çok daha büyüktür; rakipsiz ve kesmesiz dünyada beden besin sınırına kadar büyüyor olabilir.
+Evrim genomları bu dünyada da büyük (1110 $\pm$ 720 hücre), yavaş (0,0035 hücre/adım) ve besini düşük tutan ($R$ 0,048) bedenler üretir (Şekil~\ref{fig:garden}). Fenotip kalıtsaldır: rekabet, kesme ve mutasyon olmadan genomdan yeniden doğar. Aynı normdaki rastgele genomlar ise ataya benzer ya da daha küçük ve hızlı kalır (74 hücre, 0,126 hücre/adım, $R$ 0,80); biri üç tekrarında da tükenir. Rastgele genomlar kaynak evrim genomuyla eşleşik olduğundan etiketleri yalnız kaynak içinde değiştiren kesin bir permütasyon testi kullandık (54 atama, ulaşılabilecek en küçük $p \approx 0{,}019$). Beden ve besinde her kaynakta tam ayrışma vardır ($p = 0{,}019$), hızda $p = 0{,}037$; kişi başı bölünmede fark anlamlı değildir ($p = 0{,}11$). Dört kaynakla bu tasarım dört ölçü için Bonferroni eşiğine ulaşamaz; daha güçlü bir sonuç için daha çok bağımsız evrim koşusu gerekir. Yani etki genomun büyüklüğünden değil, seçilen yönden gelir. Bahçede evrim bedenleri evrim dünyasındakinden çok daha büyüktür; rakipsiz ve kesmesiz dünyada beden besin sınırına kadar büyüyor olabilir.
 
 \begin{figure*}[t]
 \centering
@@ -121,7 +121,7 @@ Kesmeler söndükten sonra birey sayısı ve avcılık payının eğilimden arı
 \section{Tartışma}
 \textbf{Ne çıktı.} Hareket, kendiliğinden bölünme, avcılık ve açlıkla ölüm ağın kuralından ve fizikten çıkıyor. Kesmeler söndükten sonra üreme tümüyle canlıların kendi işi. Evrim tekrarlanabilir bir yöne gidiyor ve bu yön kalıtsal bir fenotip taşıyor.
 
-\textbf{Ne beklemiyorduk.} Evrim daha hareketli bir dünyaya değil, durağan bir bölge mozaiğine yakınsıyor: hız mu0'ın beşte biri. Hareket ve sık bölünme kıt besinde bedeldir; K stratejisi kazanır. ``Yaşayan ekosistem'' hedefi açısından bu bir sınırdır: geç dönem dünya canlıdır ama yavaştır.
+\textbf{Ne beklemiyorduk.} Evrim daha hareketli bir dünyaya değil, durağan bir bölge mozaiğine yakınsıyor: hız mu0'ın dörtte biri. Hareket ve sık bölünme kıt besinde bedeldir; K stratejisi kazanır. ``Yaşayan ekosistem'' hedefi açısından bu bir sınırdır: geç dönem dünya canlıdır ama yavaştır.
 
 \textbf{Sınırlar.} (i) Mutasyon somatiktir; seçilim iki düzeyde birden işler ve aktarım terimi mutasyonla beden içi seçilimi ayırmaz. (ii) Ön eğitimde yabancı beden olmadığından $F$ girdisi hep sıfırdı; dünyada sıfır değildir. Avcılık bu boşlukta evrimleşmek zorundadır ve zayıf kaldı (pay 0,02). (iii) Tek ata tohumu ve tek ön eğitim koşusu vardır. Ata kontrol noktası dünya davranışına bakılarak seçildi. (iv) Kimlik etiketlerinin $\sim$9000 değeri vardır; nadir çakışmada yanlış ebeveyn seçilebilir.
 

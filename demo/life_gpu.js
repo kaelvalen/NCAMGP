@@ -14,6 +14,9 @@
       if (!gl || !gl.getExtension("EXT_color_buffer_float")) throw new Error("WebGL2 kayan nokta dokusu yok");
       const CT = Math.ceil(C / 4), GT = Math.ceil(G / 4), P4 = Math.ceil(IN / 4), H4 = Math.ceil(HD / 4);
       const OT = (this.OT = Math.ceil(NOUT / 4));
+      // tek ağırlık dokusu, satır blokları: W1 [0, HD), W2 [HD, HD+NOUT), PS [.., +HD), PB [.., +HD)
+      // (ayrı dokular + x, g, maske 19 birim tutuyordu; WebGL2 yalnız 16 garanti eder, çoğu Windows/Mac 16 verir)
+      const R_W2 = HD, R_PS = HD + NOUT, R_PB = HD + NOUT + HD, WROWS = HD + NOUT + 2 * HD;
       if (gl.getParameter(gl.MAX_DRAW_BUFFERS) < OT) throw new Error(`en az ${OT} çizim tamponu gerekli`);
       canvas.width = W;
       canvas.height = H;
@@ -23,14 +26,14 @@
       const s = world.filmScale;
       const fs = `#version 300 es
 precision highp float; precision highp int; precision highp sampler2D;
-uniform sampler2D mask, rf, W1, W2, PS, PB, ${range(CT).map((t) => "x" + t).concat(range(GT).map((t) => "g" + t)).join(", ")};
+uniform sampler2D rf, WT, ${range(CT).map((t) => "x" + t).concat(range(GT).map((t) => "g" + t)).join(", ")};
 ${range(OT).map((t) => `layout(location=${t}) out vec4 o${t};`).join("\n")}
 const float KER[${K * 9}] = float[${K * 9}](${kern.flat().map((v) => v.toFixed(8)).join(",")});
 ivec2 wrap(ivec2 p) { return ivec2((p.x + ${W}) % ${W}, (p.y + ${H}) % ${H}); }
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   ${range(OT).map((t) => `o${t} = vec4(0.);`).join(" ")}
-  if (texelFetch(mask, p, 0).r < .5) return;
+  if (texelFetch(rf, p, 0).b < .5) return; // rf = (R, F, canlı maskesi)
   vec4 n[${(CT + 1) * 9}];
   for (int j = 0; j < 9; j++) {
     ivec2 q = wrap(p + ivec2(j % 3 - 1, j / 3 - 1));
@@ -54,18 +57,18 @@ void main() {
   vec4 h[${H4}];
   for (int i = 0; i < ${H4}; i++) h[i] = vec4(0.);
   for (int j = 0; j < ${HD}; j++) {
-    float v = texelFetch(W1, ivec2(${P4}, j), 0).r;
-    for (int i = 0; i < ${P4}; i++) v += dot(texelFetch(W1, ivec2(i, j), 0), P[i]);
+    float v = texelFetch(WT, ivec2(${P4}, j), 0).r;
+    for (int i = 0; i < ${P4}; i++) v += dot(texelFetch(WT, ivec2(i, j), 0), P[i]);
     ${s ? `float gs = 0., gb = 0.;
-    for (int i = 0; i < ${GT}; i++) { gs += dot(texelFetch(PS, ivec2(i, j), 0), gv[i]); gb += dot(texelFetch(PB, ivec2(i, j), 0), gv[i]); }
+    for (int i = 0; i < ${GT}; i++) { gs += dot(texelFetch(WT, ivec2(i, ${R_PS} + j), 0), gv[i]); gb += dot(texelFetch(WT, ivec2(i, ${R_PB} + j), 0), gv[i]); }
     v = v * (1. + ${s.toFixed(8)} * gs) + ${s.toFixed(8)} * gb;` : ""}
     h[j / 4][j % 4] = max(v, 0.);
   }
   float y[${OT * 4}];
   for (int o = 0; o < ${OT * 4}; o++) y[o] = 0.;
   for (int o = 0; o < ${NOUT}; o++) {
-    float v = texelFetch(W2, ivec2(${H4}, o), 0).r;
-    for (int i = 0; i < ${H4}; i++) v += dot(texelFetch(W2, ivec2(i, o), 0), h[i]);
+    float v = texelFetch(WT, ivec2(${H4}, ${R_W2} + o), 0).r;
+    for (int i = 0; i < ${H4}; i++) v += dot(texelFetch(WT, ivec2(i, ${R_W2} + o), 0), h[i]);
     y[o] = v;
   }
   ${range(OT).map((t) => `o${t} = vec4(y[${t * 4}], y[${t * 4 + 1}], y[${t * 4 + 2}], y[${t * 4 + 3}]);`).join(" ")}
@@ -104,11 +107,17 @@ void main() { gl_Position = vec4(vec2[3](vec2(-1., -1.), vec2(3., -1.), vec2(-1.
         }
         return a;
       };
-      float("W1", P4 + 1, HD, pack(HD, IN, (r, c) => w1[r * IN + c], b1));
-      float("W2", H4 + 1, NOUT, pack(NOUT, HD, (r, c) => w2[r * HD + c], ob));
-      float("PS", GT + 1, HD, pack(HD, G, (r, c) => Ps[r * G + c]));
-      float("PB", GT + 1, HD, pack(HD, G, (r, c) => Pb[r * G + c]));
-      this.maskTex = tex("mask", gl.R8, gl.RED, gl.UNSIGNED_BYTE, W, H, null);
+      const WW = Math.max(P4, H4, GT) + 1, WTd = new Float32Array(WW * 4 * WROWS);
+      const put = (row0, cols4, a) => { // pack() satırı (cols4 + 1) vec4 genişliğinde; WW'ye sığdır
+        const rows = a.length / ((cols4 + 1) * 4);
+        for (let r = 0; r < rows; r++) WTd.set(a.subarray(r * (cols4 + 1) * 4, (r + 1) * (cols4 + 1) * 4), (row0 + r) * WW * 4);
+      };
+      put(0, P4, pack(HD, IN, (r, c) => w1[r * IN + c], b1));
+      put(R_W2, H4, pack(NOUT, HD, (r, c) => w2[r * HD + c], ob));
+      put(R_PS, GT, pack(HD, G, (r, c) => Ps[r * G + c]));
+      put(R_PB, GT, pack(HD, G, (r, c) => Pb[r * G + c]));
+      float("WT", WW, WROWS, WTd);
+      if (unit + 1 + CT + GT > gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)) throw new Error("doku birimi yetmiyor");
       this.rfTex = float("rf", W, H);
       this.xTex = range(CT).map((t) => float("x" + t, W, H));
       this.gTex = range(GT).map((t) => float("g" + t, W, H));
@@ -145,14 +154,12 @@ void main() { gl_Position = vec4(vec2[3](vec2(-1., -1.), vec2(3., -1.), vec2(-1.
     // world.forward ile aynı sözleşme: out.{drgb, dh, grow, flow, attack}; m <= 0 hücrede flow = kal
     forward(out) {
       const { gl, W, H, C, G, OT, buf, mask, y, world } = this, N = W * H, nh = world.nh, x = world.x, g = world.g;
-      for (let i = 0; i < N; i++) mask[i] = x[i * C + M] > 0 ? 255 : 0;
+      for (let i = 0; i < N; i++) mask[i] = x[i * C + M] > 0 ? 1 : 0;
       this.xTex.forEach((tx, t) => this.upload(tx, x, C, t * 4, Math.min(4, C - t * 4)));
       this.gTex.forEach((tx, t) => this.upload(tx, g, G, t * 4, Math.min(4, G - t * 4)));
-      const rf = this.rf || (this.rf = new Float32Array(N * 2));
-      for (let i = 0; i < N; i++) { rf[i * 2] = world.R[i]; rf[i * 2 + 1] = world.F[i]; }
-      this.upload(this.rfTex, rf, 2, 0, 2);
-      gl.activeTexture(gl.TEXTURE0 + this.maskTex.unit);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RED, gl.UNSIGNED_BYTE, mask);
+      const rf = this.rf || (this.rf = new Float32Array(N * 3));
+      for (let i = 0; i < N; i++) { rf[i * 3] = world.R[i]; rf[i * 3 + 1] = world.F[i]; rf[i * 3 + 2] = mask[i]; }
+      this.upload(this.rfTex, rf, 3, 0, 3);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       const Y = OT * 4;
       for (let t = 0; t < OT; t++) {
