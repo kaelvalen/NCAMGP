@@ -65,3 +65,22 @@ gecikmeler tohumdan tohuma 6000–20000 adım arasında dağınık ve 50k adıml
 Bu, periyodik salınımdan çok yavaş dalgalanmaya (ve 2/√n eşiğinin otokorelasyonlu seride gevşek olmasına)
 uyuyor. Avcılık payındaki lob zayıf (|ACF| ≤ 0,23) ve tutarsız. Sonuç: iki koşul da gürültülü, kararlı bir
 denge etrafında; mu1'deki daha yavaş dalgalanma büyük ve uzun ömürlü bedenlerin daha yavaş nüfus devriyle uyumlu.
+
+**Y5 ortak bahçe (`analysis/figures/life_garden.png`, `experiments/results/y5_garden.csv`).** Her genom kendi
+taze dünyasında: 128², aynı genomlu 6 kurucu, mutasyon ve kesme yok, 15k adım, ölçüm son 5k adım, 3 tekrar.
+Birim genomdur (tekrarlar ortalanır); tükenen tekrarlar ölçüye girmez. Gruplar: ata, 4 evrim genomu, 8 rastgele.
+
+| grup | genom | tükenen tekrar | beden (hücre) | hız | bölünme / birey / 1000 adım | R |
+|---|---|---|---|---|---|---|
+| ata | 1 | 0 | 79 | 0,050 | 1,7 | 0,60 |
+| evrim | 4 | 0 | 1110 ± 720 | 0,0035 ± 0,0014 | 0,02 ± 0,03 | 0,048 ± 0,009 |
+| rastgele | 7 (+1 tükendi) | %17 | 74 ± 34 | 0,126 ± 0,050 | 6,0 ± 6,8 | 0,80 ± 0,22 |
+
+Evrim ile rastgele arasında kesin permütasyon testi (4'e karşı 7 genom): beden p = 0,006, hız p = 0,006,
+R p = 0,003. Bölünme p = 0,07, anlamlı değil. Evrim genomları mutasyonsuz taze dünyada da büyük, yavaş ve
+besini düşük düzeye indiren bedenler üretiyor: fenotip kalıtsal. Aynı normdaki rastgele genomlar ataya benzer
+ya da daha hızlı ve küçük kalıyor, biri tükeniyor: etki genomun yönünden geliyor, büyüklüğünden değil.
+Önceden yazılan beklenti tuttu. Bahçede evrim bedenleri evrim dünyasındakinden (152) çok daha büyük; olası
+neden (doğrulanmadı): rakip ve kesme olmadan beden besin sınırına kadar büyüyor. Bir evrim genomu (tohum 2)
+~110 hücrede kalıyor ama o da yavaş (0,005) ve besini düşük tutuyor. Tekrarlanabilirlik: gid'siz ilk koşunun
+ata ve evrim satırları bu koşuyla birebir aynı.
